@@ -39,7 +39,7 @@ CREATE TABLE equipe (
     como_conheceu ENUM('Redes sociais', 'Amigos', 'Eventos', 'Outros'),
     link_pitch VARCHAR(255), /* Link do vídeo no YouTube enviado no final */
     id_mentor INT,
-    id_etapa_atual INT NOT NULL, /* Controle do Kanban/Funil */
+    id_etapa_atual INT NOT NULL,
     FOREIGN KEY (id_mentor) REFERENCES usuario(id_usuario),
     FOREIGN KEY (id_etapa_atual) REFERENCES etapa(id_etapa)
 );
@@ -49,7 +49,7 @@ CREATE TABLE equipe_usuario (
     id_equipe_usuario INT PRIMARY KEY AUTO_INCREMENT,
     id_equipe INT NOT NULL,
       id_usuario INT NOT NULL,
-    papel ENUM('lider', 'integrante') NOT NULL, /* Papel específico DESTE aluno NESTA equipe */
+    papel ENUM('lider', 'integrante') NOT NULL, 
     FOREIGN KEY (id_equipe) REFERENCES equipe(id_equipe),
     FOREIGN KEY (id_usuario) REFERENCES usuario(id_usuario)
 );
