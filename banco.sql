@@ -2,6 +2,9 @@
 do youtube, usuário poderá participar de mais de uma equipe, não existe um número máximo de integrantes
 por equipe, o sistema não terá novas etapas pós infohub, o serviço de e-mail sera o gmail com RESEND */
 
+create DATABASE IF NOT EXISTS infohub;
+USE infohub;
+
 /* Cursos*/
 CREATE TABLE cursos (
     id_curso INT PRIMARY KEY AUTO_INCREMENT,
@@ -48,7 +51,7 @@ CREATE TABLE equipe (
 CREATE TABLE equipe_usuario (
     id_equipe_usuario INT PRIMARY KEY AUTO_INCREMENT,
     id_equipe INT NOT NULL,
-      id_usuario INT NOT NULL,
+    id_usuario INT NOT NULL,
     papel ENUM('lider', 'integrante') NOT NULL, 
     FOREIGN KEY (id_equipe) REFERENCES equipe(id_equipe),
     FOREIGN KEY (id_usuario) REFERENCES usuario(id_usuario)
