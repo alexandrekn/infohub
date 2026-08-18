@@ -17,10 +17,10 @@ CREATE TABLE usuario (
     nome VARCHAR(100) NOT NULL,
     telefone VARCHAR(15) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
-    senha VARCHAR(255) NOT NULL, /* Aumentado para 255 para suportar hashes de senha (ex: bcrypt) */
-    perfil ENUM('aluno', 'mentor', 'admin') NOT NULL, /* Perfil de acesso ao sistema */
+    senha VARCHAR(255) NOT NULL, 
+    perfil ENUM('aluno', 'mentor', 'admin') NOT NULL, 
     id_curso INT,
-    semestre TINYINT, /* O semestre pertence ao status atual do aluno, ex: 1 a 10 */
+    semestre TINYINT, 
     FOREIGN KEY (id_curso) REFERENCES cursos(id_curso)
 );
 
@@ -40,7 +40,7 @@ CREATE TABLE equipe (
     area_ideia ENUM('Saúde', 'Educação', 'Meio Ambiente', 'Tecnologia', 'Entretenimento', 'Serviços', 'Outro') NOT NULL,
     estagio_ideia ENUM('Apenas ideia', 'Validação', 'Prototipagem', 'Lançamento') NOT NULL,
     como_conheceu ENUM('Redes sociais', 'Amigos', 'Eventos', 'Outros'),
-    link_pitch VARCHAR(255), /* Link do vídeo no YouTube enviado no final */
+    link_pitch VARCHAR(255), 
     id_mentor INT,
     id_etapa_atual INT NOT NULL,
     FOREIGN KEY (id_mentor) REFERENCES usuario(id_usuario),
