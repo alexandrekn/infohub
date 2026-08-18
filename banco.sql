@@ -1,3 +1,7 @@
+/* Líder e integrante com roles diferentes, Perfil próprio para mentores, o video do pitch sera enviado via link
+do youtube, usuário poderá participar de mais de uma equipe, não existe um número máximo de integrantes
+por equipe, o sistema não terá novas etapas pós infohub, o serviço de e-mail sera o gmail com RESEND */
+
 /* Cursos*/
 CREATE TABLE cursos (
     id_curso INT PRIMARY KEY AUTO_INCREMENT,
