@@ -1,0 +1,127 @@
+.ih-aluno__vazio {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.ih-aluno__vazio-icone {
+  width: 72px;
+  height: auto;
+  margin: 0 auto var(--space-3);
+  opacity: 0.85;
+}
+
+.ih-aluno__equipe {
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-5);
+}
+
+.ih-aluno__equipe-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.ih-aluno__equipe-header h3 {
+  font-size: 18px;
+  margin-bottom: 2px;
+}
+
+.ih-aluno__equipe-header p {
+  color: var(--color-muted);
+  font-size: 13.5px;
+}
+
+.ih-aluno__ver-detalhe {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ember-600);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ih-aluno__tracker {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+}
+
+.ih-aluno__mentor {
+  font-size: 13px;
+  color: var(--color-muted);
+  margin-bottom: var(--space-4);
+}
+
+.ih-aluno__tarefas h4 {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-navy-700);
+  margin-bottom: var(--space-3);
+}
+
+.ih-aluno__sem-tarefas {
+  font-size: 13.5px;
+  color: var(--color-success);
+}
+
+.ih-aluno__tarefas ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ih-aluno__tarefas li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.ih-aluno__tarefas li strong {
+  font-size: 13.5px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.ih-aluno__tarefas li p {
+  font-size: 12.5px;
+  color: var(--color-muted);
+  margin-bottom: var(--space-1);
+}
+
+.ih-aluno__dica-entrega {
+  font-size: 12px;
+  color: var(--color-muted);
+  margin-top: var(--space-3);
+}
+
+.ih-aluno__dica-entrega a {
+  color: var(--color-ember-600);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ih-aluno__tarefas--concluidas {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--color-border);
+}
+
+.ih-aluno__tarefas--concluidas li {
+  opacity: 0.75;
+}
+
+.ih-aluno__prazo {
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  color: var(--color-muted-2);
+}

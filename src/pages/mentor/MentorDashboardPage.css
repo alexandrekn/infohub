@@ -1,0 +1,18 @@
+.ih-mentor__vazio {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.ih-mentor__vazio-icone {
+  width: 72px;
+  height: auto;
+  margin: 0 auto var(--space-3);
+  opacity: 0.85;
+}
+
+.ih-mentor__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}

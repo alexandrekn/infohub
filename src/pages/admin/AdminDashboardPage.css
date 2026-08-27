@@ -1,0 +1,137 @@
+.ih-indicadores {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.ih-indicador {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ih-indicador__valor {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-navy-900);
+}
+
+.ih-indicador__label {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.ih-admin__busca-avancada {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ih-admin__linha-busca {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.ih-admin__linha-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ih-admin__limpar {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ih-admin__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.ih-admin__filtro {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--color-navy-700);
+}
+
+.ih-admin__filtro--ativo {
+  background: var(--color-navy-900);
+  color: #fff;
+  border-color: var(--color-navy-900);
+}
+
+.ih-kanban {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(220px, 1fr));
+  gap: var(--space-4);
+  overflow-x: auto;
+  padding-bottom: var(--space-4);
+}
+
+.ih-kanban__coluna {
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 200px;
+}
+
+.ih-kanban__coluna-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-navy-700);
+  padding: 0 var(--space-1);
+}
+
+.ih-kanban__contador {
+  background: var(--color-surface);
+  border-radius: var(--radius-pill);
+  padding: 1px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.ih-kanban__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ih-kanban__vazio {
+  font-size: 12px;
+  color: var(--color-muted-2);
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+@media (max-width: 1100px) {
+  .ih-indicadores {
+    grid-template-columns: 1fr;
+  }
+  .ih-admin__linha-busca {
+    grid-template-columns: 1fr 1fr;
+  }
+}

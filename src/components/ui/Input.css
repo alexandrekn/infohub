@@ -1,0 +1,59 @@
+.ih-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ih-field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-navy-700);
+}
+
+.ih-field__input {
+  height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 14.5px;
+  color: var(--color-navy-900);
+  font-family: var(--font-body);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ih-field__input:focus {
+  border-color: var(--color-ember-500);
+  box-shadow: 0 0 0 3px rgba(234, 75, 52, 0.12);
+  outline: none;
+}
+
+.ih-field__input--error {
+  border-color: var(--color-danger);
+}
+
+.ih-field__error {
+  font-size: 12.5px;
+  color: var(--color-danger);
+}
+
+.ih-field__hint {
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+
+textarea.ih-field__input {
+  height: auto;
+  min-height: 96px;
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
+  font-family: var(--font-body);
+}
+
+select.ih-field__input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236B7280' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
