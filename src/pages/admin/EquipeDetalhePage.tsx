@@ -6,9 +6,8 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { StageTracker } from "@/components/ui/StageTracker";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { USUARIOS } from "@/mocks/data";
 import { useAuth } from "@/hooks/useAuth";
-import { dataServiceMock, MODELOS_TAREFA_POR_ETAPA } from "@/services/mock/dataService.mock";
+import { dataService, MODELOS_TAREFA_POR_ETAPA } from "@/services/data.service";
 import type { Anotacao, Entregavel, Equipe, Etapa, HistoricoEtapa, Tarefa } from "@/types";
 import "./EquipeDetalhePage.css";
 
@@ -27,24 +26,24 @@ export function EquipeDetalhePage() {
 
   async function recarregar() {
     const [eq, hist, anots, tf] = await Promise.all([
-      dataServiceMock.buscarEquipe(idEquipe),
-      dataServiceMock.listarHistoricoEtapas(idEquipe),
-      dataServiceMock.listarAnotacoes(idEquipe),
-      dataServiceMock.listarTarefasPorEquipe(idEquipe),
+      dataService.buscarEquipe(idEquipe),
+      dataService.listarHistoricoEtapas(idEquipe),
+      dataService.listarAnotacoes(idEquipe),
+      dataService.listarTarefasPorEquipe(idEquipe),
     ]);
     setEquipe(eq ?? null);
     setHistorico(hist);
     setAnotacoes(anots);
     setTarefas(tf);
     const entradas = await Promise.all(
-      tf.map(async (t) => [t.id_tarefa, await dataServiceMock.listarEntregaveisPorTarefa(t.id_tarefa)] as const)
+      tf.map(async (t) => [t.id_tarefa, await dataService.listarEntregaveisPorTarefa(t.id_tarefa)] as const)
     );
     setEntregaveisPorTarefa(Object.fromEntries(entradas));
   }
 
   useEffect(() => {
     if (!id) return;
-    dataServiceMock.listarEtapas().then(setEtapas);
+    dataService.listarEtapas().then(setEtapas);
     recarregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -57,7 +56,7 @@ export function EquipeDetalhePage() {
     );
   }
 
-  const mentores = USUARIOS.filter((u) => equipe.id_mentores?.includes(u.id_usuario));
+  const mentores = equipe.mentores ?? [];
   const souAdmin = usuario.perfil === "admin";
   const souMentorDaEquipe = usuario.perfil === "mentor" && equipe.id_mentores?.includes(usuario.id_usuario);
   const souIntegranteDaEquipe = usuario.perfil === "aluno" && equipe.integrantes?.some((i) => i.id_usuario === usuario.id_usuario);
@@ -69,12 +68,12 @@ export function EquipeDetalhePage() {
   const podeAnexarEntrega = Boolean(souIntegranteDaEquipe); // RF-14
 
   async function avancarEtapa() {
-    await dataServiceMock.avancarEtapa(idEquipe);
+    await dataService.avancarEtapa(idEquipe);
     recarregar();
   }
 
   async function retrocederEtapa() {
-    await dataServiceMock.retrocederEtapa(idEquipe);
+    await dataService.retrocederEtapa(idEquipe);
     recarregar();
   }
 
@@ -295,7 +294,7 @@ function NovaTarefaForm({
     e.preventDefault();
     if (!titulo.trim() || !dataLimite) return;
     setEnviando(true);
-    await dataServiceMock.criarTarefa({
+    await dataService.criarTarefa({
       idEquipe,
       idEtapa,
       titulo,
@@ -411,14 +410,14 @@ function TarefaLinha({
 
   async function aprovar() {
     setProcessando(true);
-    await dataServiceMock.aprovarTarefa(tarefa.id_tarefa);
+    await dataService.aprovarTarefa(tarefa.id_tarefa);
     setProcessando(false);
     onMudou();
   }
 
   async function confirmarReprovar() {
     setProcessando(true);
-    await dataServiceMock.reprovarTarefa(tarefa.id_tarefa, comentario, {
+    await dataService.reprovarTarefa(tarefa.id_tarefa, comentario, {
       idEquipe,
       idEtapa: tarefa.id_etapa,
       idUsuario,
@@ -430,16 +429,22 @@ function TarefaLinha({
   }
 
   async function salvarPrazo() {
-    // Alteração de prazo é restrita ao mentor da equipe — ver EquipeDetalhePage (podeAlterarPrazo).
-    tarefa.data_limite = novoPrazo;
-    setEditandoPrazo(false);
-    onMudou();
+    setProcessando(true);
+    try {
+      await dataService.alterarPrazoTarefa(tarefa.id_tarefa, novoPrazo);
+      setEditandoPrazo(false);
+      onMudou();
+    } catch {
+      alert("Não foi possível alterar o prazo. Só o mentor da equipe pode fazer isso.");
+    } finally {
+      setProcessando(false);
+    }
   }
 
   async function enviarEntrega() {
     if (!urlEntrega.trim()) return;
     setProcessando(true);
-    await dataServiceMock.anexarEntrega({ idTarefa: tarefa.id_tarefa, idUsuario, arquivoUrl: urlEntrega, tipo: tipoEntrega });
+    await dataService.anexarEntrega({ idTarefa: tarefa.id_tarefa, idUsuario, arquivoUrl: urlEntrega, tipo: tipoEntrega });
     setProcessando(false);
     setUrlEntrega("");
     onMudou();
@@ -570,7 +575,7 @@ function AnotacoesSecao({
   async function adicionar() {
     if (!texto.trim()) return;
     setEnviando(true);
-    await dataServiceMock.criarAnotacao({ idEquipe, idEtapa, idUsuario, descricao: texto });
+    await dataService.criarAnotacao({ idEquipe, idEtapa, idUsuario, descricao: texto });
     setTexto("");
     setEnviando(false);
     onMudou();
@@ -593,7 +598,7 @@ function AnotacoesSecao({
       </div>
       <ul className="ih-anotacoes__lista">
         {anotacoes.map((anotacao) => {
-          const autor = USUARIOS.find((u) => u.id_usuario === anotacao.id_usuario);
+          const autor = anotacao.autor;
           return (
             <li key={anotacao.id_anotacao}>
               <p>{anotacao.descricao}</p>

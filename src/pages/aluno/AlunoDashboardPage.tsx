@@ -4,9 +4,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/Badge";
 import { StageTracker } from "@/components/ui/StageTracker";
-import { USUARIOS } from "@/mocks/data";
 import { useAuth } from "@/hooks/useAuth";
-import { dataServiceMock } from "@/services/mock/dataService.mock";
+import { dataService } from "@/services/data.service";
 import type { Equipe, Etapa, Tarefa } from "@/types";
 import logoIcon from "@/assets/logo-infohub-icon.png";
 import "./AlunoDashboardPage.css";
@@ -19,11 +18,11 @@ export function AlunoDashboardPage() {
 
   useEffect(() => {
     if (!usuario) return;
-    dataServiceMock.listarEtapas().then(setEtapas);
-    dataServiceMock.listarEquipesDoAluno(usuario.id_usuario).then(async (lista) => {
+    dataService.listarEtapas().then(setEtapas);
+    dataService.listarEquipesDoAluno(usuario.id_usuario).then(async (lista) => {
       setEquipes(lista);
       const entradas = await Promise.all(
-        lista.map(async (equipe) => [equipe.id_equipe, await dataServiceMock.listarTarefasPorEquipe(equipe.id_equipe)] as const)
+        lista.map(async (equipe) => [equipe.id_equipe, await dataService.listarTarefasPorEquipe(equipe.id_equipe)] as const)
       );
       setTarefasPorEquipe(Object.fromEntries(entradas));
     });
@@ -43,7 +42,7 @@ export function AlunoDashboardPage() {
   return (
     <DashboardLayout titulo="Minha jornada">
       {equipes.map((equipe) => {
-        const mentores = USUARIOS.filter((u) => equipe.id_mentores?.includes(u.id_usuario));
+        const mentores = equipe.mentores ?? [];
         const tarefas = tarefasPorEquipe[equipe.id_equipe] ?? [];
         const pendentes = tarefas.filter((t) => t.status !== "Aprovada");
         const concluidas = tarefas.filter((t) => t.status === "Aprovada");

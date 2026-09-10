@@ -4,8 +4,15 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
-import { CONTAS_TESTE } from "@/services/mock/authService.mock";
 import "./AuthForm.css";
+
+/** Contas seedadas no backend (src/data/store.ts) — todas com senha "senha123". */
+const CONTAS_TESTE = [
+  { perfil: "Admin", email: "bruna.admin@infohub.edu.br" },
+  { perfil: "Mentor", email: "rafael.mentor@infohub.edu.br" },
+  { perfil: "Aluno (líder)", email: "gustavo@aluno.edu.br" },
+  { perfil: "Aluno (integrante)", email: "larissa@aluno.edu.br" },
+] as const;
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -72,7 +79,7 @@ export function LoginPage() {
         </div>
 
         <div className="ih-authform__contas-teste">
-          <p>Modo de dados mockados — use qualquer senha com 6+ caracteres:</p>
+          <p>Contas de teste do backend — senha para todas: <strong>senha123</strong></p>
           <ul>
             {CONTAS_TESTE.map((conta) => (
               <li key={conta.email}>

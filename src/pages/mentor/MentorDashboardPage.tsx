@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { EquipeCard } from "@/components/equipes/EquipeCard";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/hooks/useAuth";
-import { dataServiceMock } from "@/services/mock/dataService.mock";
+import { dataService } from "@/services/data.service";
 import type { Equipe } from "@/types";
 import logoIcon from "@/assets/logo-infohub-icon.png";
 import "./MentorDashboardPage.css";
@@ -14,7 +14,7 @@ export function MentorDashboardPage() {
 
   useEffect(() => {
     if (!usuario) return;
-    dataServiceMock.listarEquipesDoMentor(usuario.id_usuario).then(setEquipes);
+    dataService.listarEquipesDoMentor(usuario.id_usuario).then(setEquipes);
   }, [usuario]);
 
   return (

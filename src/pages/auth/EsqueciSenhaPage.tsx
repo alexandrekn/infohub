@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { authServiceMock } from "@/services/mock/authService.mock";
+import { authService } from "@/services/auth.service";
 import "./AuthForm.css";
 
 export function EsqueciSenhaPage() {
@@ -14,7 +14,7 @@ export function EsqueciSenhaPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setEnviando(true);
-    await authServiceMock.solicitarRecuperacaoSenha(email);
+    await authService.solicitarRecuperacaoSenha(email);
     setEnviando(false);
     setEnviado(true);
   }

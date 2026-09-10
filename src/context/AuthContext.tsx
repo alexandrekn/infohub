@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState, type ReactNode } from "react";
-import { authServiceMock } from "@/services/mock/authService.mock";
+import { authService } from "@/services/auth.service";
 import type { CadastroIdeiaPayload, Usuario } from "@/types";
 
 interface AuthContextData {
@@ -35,13 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(email: string, senha: string) {
-    // Troque por services/auth.service.ts quando o backend estiver pronto.
-    const { token, usuario: usuarioLogado } = await authServiceMock.login(email, senha);
+    const { token, usuario: usuarioLogado } = await authService.login(email, senha);
     persistirSessao(token, usuarioLogado);
   }
 
   async function cadastrarIdeia(payload: CadastroIdeiaPayload) {
-    const { token, usuario: usuarioLogado } = await authServiceMock.cadastrarIdeia(payload);
+    const { token, usuario: usuarioLogado } = await authService.cadastrarIdeia(payload);
     persistirSessao(token, usuarioLogado);
   }
 

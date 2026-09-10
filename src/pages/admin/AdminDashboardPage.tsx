@@ -3,9 +3,9 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { EquipeCard } from "@/components/equipes/EquipeCard";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { CURSOS, USUARIOS } from "@/mocks/data";
-import { contarPorEtapa, dataServiceMock, exportarEquipesCSV } from "@/services/mock/dataService.mock";
-import type { Equipe, Etapa, StatusTarefa, Tarefa } from "@/types";
+import { cursosService } from "@/services/cursos.service";
+import { contarPorEtapa, dataService, exportarEquipesCSV } from "@/services/data.service";
+import type { Curso, Equipe, Etapa, StatusTarefa, Tarefa, Usuario } from "@/types";
 import "./AdminDashboardPage.css";
 
 const STATUS_TAREFA: StatusTarefa[] = ["Pendente", "Em andamento", "Entregue", "Atrasada", "Aprovada", "Reprovada/Ajustar"];
@@ -14,6 +14,8 @@ export function AdminDashboardPage() {
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [cursos, setCursos] = useState<Curso[]>([]);
+  const [mentores, setMentores] = useState<Usuario[]>([]);
   const [filtroArea, setFiltroArea] = useState("");
   const [busca, setBusca] = useState("");
   const [filtroCurso, setFiltroCurso] = useState<number | "">("");
@@ -22,12 +24,13 @@ export function AdminDashboardPage() {
   const [filtroTurma, setFiltroTurma] = useState("");
 
   useEffect(() => {
-    dataServiceMock.listarEquipes().then(setEquipes);
-    dataServiceMock.listarEtapas().then(setEtapas);
-    dataServiceMock.listarTodasTarefas().then(setTarefas);
+    dataService.listarEquipes().then(setEquipes);
+    dataService.listarEtapas().then(setEtapas);
+    dataService.listarTodasTarefas().then(setTarefas);
+    cursosService.listar().then(setCursos);
+    dataService.listarUsuariosPorPerfil(["mentor"]).then(setMentores);
   }, []);
 
-  const mentores = useMemo(() => USUARIOS.filter((u) => u.perfil === "mentor"), []);
   const turmas = useMemo(() => Array.from(new Set(equipes.map((e) => e.turma))).sort(), [equipes]);
   const areas = useMemo(() => Array.from(new Set(equipes.map((e) => e.area_ideia))), [equipes]);
 
@@ -36,7 +39,7 @@ export function AdminDashboardPage() {
     return equipes.filter((equipe) => {
       if (filtroArea && equipe.area_ideia !== filtroArea) return false;
       if (filtroTurma && equipe.turma !== filtroTurma) return false;
-      if (filtroMentor && !equipe.id_mentores?.includes(filtroMentor)) return false;
+      if (filtroMentor && !equipe.id_mentores.includes(filtroMentor)) return false;
       if (filtroCurso) {
         const temCurso = equipe.integrantes?.some((i) => i.usuario?.id_curso === filtroCurso);
         if (!temCurso) return false;
@@ -93,7 +96,7 @@ export function AdminDashboardPage() {
           />
           <select className="ih-field__input" value={filtroCurso} onChange={(e) => setFiltroCurso(e.target.value ? Number(e.target.value) : "")}>
             <option value="">Todos os cursos</option>
-            {CURSOS.map((curso) => (
+            {cursos.map((curso) => (
               <option key={curso.id_curso} value={curso.id_curso}>
                 {curso.nome}
               </option>
@@ -170,7 +173,7 @@ export function AdminDashboardPage() {
                   <EquipeCard
                     key={equipe.id_equipe}
                     equipe={equipe}
-                    mentores={USUARIOS.filter((u) => equipe.id_mentores?.includes(u.id_usuario))}
+                    mentores={equipe.mentores ?? []}
                   />
                 ))}
               {contagemPorEtapa[etapa.id_etapa] === undefined && (

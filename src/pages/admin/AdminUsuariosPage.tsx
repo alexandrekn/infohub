@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { dataServiceMock } from "@/services/mock/dataService.mock";
+import { dataService } from "@/services/data.service";
 import type { PerfilUsuario, Usuario } from "@/types";
 import "./AdminUsuariosPage.css";
 
@@ -13,7 +13,7 @@ export function AdminUsuariosPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
 
   async function recarregar() {
-    const lista = await dataServiceMock.listarUsuariosPorPerfil(["admin", "mentor"]);
+    const lista = await dataService.listarUsuariosPorPerfil(["admin", "mentor"]);
     setUsuarios(lista);
   }
 
@@ -22,7 +22,7 @@ export function AdminUsuariosPage() {
   }, []);
 
   async function alternarAtivo(idUsuario: number) {
-    await dataServiceMock.alternarAtivoUsuario(idUsuario);
+    await dataService.alternarAtivoUsuario(idUsuario);
     recarregar();
   }
 
@@ -104,7 +104,7 @@ function NovaContaForm({ onCriada }: { onCriada: () => void }) {
     e.preventDefault();
     if (!nome.trim() || !email.trim()) return;
     setEnviando(true);
-    await dataServiceMock.criarUsuario({ nome, email, telefone, perfil });
+    await dataService.criarUsuario({ nome, email, telefone, perfil });
     setEnviando(false);
     setNome("");
     setEmail("");

@@ -59,6 +59,8 @@ export interface Equipe {
   como_conheceu?: ComoConheceu | null;
   link_pitch?: string | null;
   id_mentores: number[];
+  /** Vem populado pelo backend junto com a equipe — evita um lookup à parte. */
+  mentores?: Usuario[];
   id_etapa_atual: number;
   turma: string;
   integrantes?: IntegranteEquipe[];
@@ -99,6 +101,8 @@ export interface Anotacao {
   id_usuario: number;
   id_equipe: number;
   id_etapa: number;
+  /** Vem populado pelo backend junto com a anotação. */
+  autor?: Usuario | null;
 }
 
 export interface Lembrete {
