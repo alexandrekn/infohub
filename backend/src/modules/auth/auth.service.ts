@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { contadores, equipeUsuarios, equipes, historicoEtapas, usuarios } from "../../data/store";
+import { pool } from "../../db/pool";
 import { ApiError } from "../../utils/ApiError";
 import { assinarToken } from "../../utils/jwt";
 import type { Usuario, UsuarioPublico } from "../../types";
@@ -13,33 +13,43 @@ export function paraPublico(usuario: Usuario): UsuarioPublico {
   return publico;
 }
 
-function encontrarPorEmail(email: string): Usuario | undefined {
-  return usuarios.find((u) => u.email.toLowerCase() === email.toLowerCase());
+function linhaParaUsuario(row: any): Usuario {
+  return {
+    id_usuario: row.id_usuario,
+    nome: row.nome,
+    telefone: row.telefone,
+    email: row.email,
+    senha_hash: row.senha,
+    perfil: row.perfil,
+    id_curso: row.id_curso,
+    semestre: row.semestre,
+    ativo: row.ativo,
+  };
 }
 
-function encontrarOuCriarIntegrante(nome: string, email: string): Usuario {
-  const existente = encontrarPorEmail(email);
-  if (existente) return existente;
+async function encontrarPorEmail(email: string): Promise<Usuario | undefined> {
+  const { rows } = await pool.query("SELECT * FROM usuario WHERE lower(email) = lower($1)", [email]);
+  return rows[0] ? linhaParaUsuario(rows[0]) : undefined;
+}
+
+async function encontrarOuCriarIntegrante(client: import("pg").PoolClient, nome: string, email: string): Promise<Usuario> {
+  const existente = await client.query("SELECT * FROM usuario WHERE lower(email) = lower($1)", [email]);
+  if (existente.rows[0]) return linhaParaUsuario(existente.rows[0]);
 
   // Conta criada automaticamente (RF-02) — o integrante ainda não definiu senha própria;
   // um hash aleatório impede login até o fluxo de "esqueci minha senha" ser usado.
   const senhaTemporariaHash = bcrypt.hashSync(crypto.randomBytes(16).toString("hex"), 8);
-  const novo: Usuario = {
-    id_usuario: contadores.usuario++,
-    nome,
-    telefone: "",
-    email,
-    senha_hash: senhaTemporariaHash,
-    perfil: "aluno",
-    ativo: true,
-  };
-  usuarios.push(novo);
-  return novo;
+  const { rows } = await client.query(
+    `INSERT INTO usuario (nome, telefone, email, senha, perfil, ativo)
+     VALUES ($1, '', $2, $3, 'aluno', true) RETURNING *`,
+    [nome, email, senhaTemporariaHash]
+  );
+  return linhaParaUsuario(rows[0]);
 }
 
 export const authService = {
   async login(email: string, senha: string) {
-    const usuario = encontrarPorEmail(email);
+    const usuario = await encontrarPorEmail(email);
     if (!usuario) throw ApiError.unauthorized("E-mail ou senha inválidos.");
     if (!usuario.ativo) throw ApiError.forbidden("Esta conta está desativada.");
 
@@ -52,59 +62,56 @@ export const authService = {
 
   /** RF-02/RF-05 — cria o líder, os integrantes (sem RA, só e-mail e curso) e a equipe já na Etapa 1. */
   async cadastrarIdeia(payload: CadastroIdeiaInput) {
-    if (encontrarPorEmail(payload.email)) {
+    if (await encontrarPorEmail(payload.email)) {
       throw ApiError.conflict("Já existe uma conta com este e-mail.");
     }
 
-    const senhaHash = await bcrypt.hash(payload.senha, 10);
-    const lider: Usuario = {
-      id_usuario: contadores.usuario++,
-      nome: payload.nome_lider,
-      telefone: payload.telefone,
-      email: payload.email,
-      senha_hash: senhaHash,
-      perfil: "aluno",
-      id_curso: payload.id_curso,
-      semestre: payload.semestre,
-      ativo: true,
-    };
-    usuarios.push(lider);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const idEquipe = contadores.equipe++;
-    equipeUsuarios.push({ id_equipe_usuario: contadores.equipeUsuario++, id_equipe: idEquipe, id_usuario: lider.id_usuario, papel: "lider" });
+      const senhaHash = await bcrypt.hash(payload.senha, 10);
+      const { rows: liderRows } = await client.query(
+        `INSERT INTO usuario (nome, telefone, email, senha, perfil, id_curso, semestre, ativo)
+         VALUES ($1, $2, $3, $4, 'aluno', $5, $6, true) RETURNING *`,
+        [payload.nome_lider, payload.telefone, payload.email, senhaHash, payload.id_curso, payload.semestre]
+      );
+      const lider = linhaParaUsuario(liderRows[0]);
 
-    for (const integrante of payload.integrantes) {
-      const usuarioIntegrante = encontrarOuCriarIntegrante(integrante.nome, integrante.email);
-      equipeUsuarios.push({
-        id_equipe_usuario: contadores.equipeUsuario++,
-        id_equipe: idEquipe,
-        id_usuario: usuarioIntegrante.id_usuario,
-        papel: "integrante",
-      });
+      const { rows: equipeRows } = await client.query(
+        `INSERT INTO equipe (nome_equipe, nome_ideia, descricao_ideia, area_ideia, estagio_ideia, como_conheceu, link_pitch, id_etapa_atual, turma)
+         VALUES ($1, $1, $2, $3, $4, $5, NULL, 1, $6) RETURNING id_equipe`,
+        [payload.nome_ideia, payload.descricao_ideia, payload.area_ideia, payload.estagio_ideia, payload.como_conheceu ?? null, TURMA_ATUAL]
+      );
+      const idEquipe = equipeRows[0].id_equipe as number;
+
+      await client.query("INSERT INTO equipe_usuario (id_equipe, id_usuario, papel) VALUES ($1, $2, 'lider')", [idEquipe, lider.id_usuario]);
+
+      for (const integrante of payload.integrantes) {
+        const usuarioIntegrante = await encontrarOuCriarIntegrante(client, integrante.nome, integrante.email);
+        await client.query(
+          "INSERT INTO equipe_usuario (id_equipe, id_usuario, papel) VALUES ($1, $2, 'integrante') ON CONFLICT DO NOTHING",
+          [idEquipe, usuarioIntegrante.id_usuario]
+        );
+      }
+
+      await client.query("INSERT INTO historico_etapa (id_equipe, id_etapa) VALUES ($1, 1)", [idEquipe]);
+
+      await client.query("COMMIT");
+
+      const token = assinarToken({ id_usuario: lider.id_usuario, perfil: lider.perfil, email: lider.email });
+      return { token, usuario: paraPublico(lider) };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
-
-    equipes.push({
-      id_equipe: idEquipe,
-      nome_equipe: payload.nome_ideia,
-      nome_ideia: payload.nome_ideia,
-      descricao_ideia: payload.descricao_ideia,
-      area_ideia: payload.area_ideia,
-      estagio_ideia: payload.estagio_ideia,
-      como_conheceu: payload.como_conheceu,
-      link_pitch: null,
-      id_mentores: [],
-      id_etapa_atual: 1,
-      turma: TURMA_ATUAL,
-    });
-    historicoEtapas.push({ id_equipe: idEquipe, id_etapa: 1, data_entrada: new Date().toISOString().slice(0, 10) });
-
-    const token = assinarToken({ id_usuario: lider.id_usuario, perfil: lider.perfil, email: lider.email });
-    return { token, usuario: paraPublico(lider) };
   },
 
   async solicitarRecuperacaoSenha(email: string) {
     // Sem envio real de e-mail ainda (depende do Resend — RF-17/18/19).
     // Resposta é sempre "ok" independentemente de o e-mail existir, para não vazar quais contas existem.
-    void encontrarPorEmail(email);
+    void (await encontrarPorEmail(email));
   },
 };

@@ -1,96 +1,112 @@
-import { anotacoes, contadores, entregaveis, lembretes, tarefas } from "../../data/store";
+import { pool } from "../../db/pool";
 import { ApiError } from "../../utils/ApiError";
 import type { CriarTarefaInput } from "./tarefas.schema";
 
+const SELECT_TAREFA = `
+  SELECT t.id_tarefa, t.titulo, t.descricao,
+         to_char(t.data_limite, 'YYYY-MM-DD') AS data_limite,
+         t.id_equipe, t.id_etapa, st.descricao AS status
+  FROM tarefa t
+  JOIN status_tarefa st ON st.id_status = t.id_status
+`;
+
 export const tarefasService = {
-  listarPorEquipe(idEquipe: number) {
-    return tarefas.filter((t) => t.id_equipe === idEquipe);
+  async listarPorEquipe(idEquipe: number) {
+    const { rows } = await pool.query(`${SELECT_TAREFA} WHERE t.id_equipe = $1 ORDER BY t.id_tarefa`, [idEquipe]);
+    return rows;
   },
 
-  listarTodas() {
-    return tarefas;
+  async listarTodas() {
+    const { rows } = await pool.query(`${SELECT_TAREFA} ORDER BY t.id_tarefa`);
+    return rows;
   },
 
-  buscarPorId(idTarefa: number) {
-    const tarefa = tarefas.find((t) => t.id_tarefa === idTarefa);
-    if (!tarefa) throw ApiError.notFound("Tarefa não encontrada.");
-    return tarefa;
+  async buscarPorId(idTarefa: number) {
+    const { rows } = await pool.query(`${SELECT_TAREFA} WHERE t.id_tarefa = $1`, [idTarefa]);
+    if (!rows[0]) throw ApiError.notFound("Tarefa não encontrada.");
+    return rows[0];
   },
 
   /** RF-11/RF-17 — cria a tarefa e já registra os lembretes automáticos. */
-  criar(idEquipe: number, dados: CriarTarefaInput) {
-    const nova = {
-      id_tarefa: contadores.tarefa++,
-      titulo: dados.titulo,
-      descricao: dados.descricao,
-      data_limite: dados.data_limite,
-      id_equipe: idEquipe,
-      id_etapa: dados.id_etapa,
-      status: "Pendente" as const,
-    };
-    tarefas.push(nova);
+  async criar(idEquipe: number, dados: CriarTarefaInput) {
+    const { rows } = await pool.query(
+      `INSERT INTO tarefa (titulo, descricao, data_limite, id_equipe, id_etapa, id_status)
+       VALUES ($1, $2, $3, $4, $5, (SELECT id_status FROM status_tarefa WHERE descricao = 'Pendente'))
+       RETURNING id_tarefa`,
+      [dados.titulo, dados.descricao, dados.data_limite, idEquipe, dados.id_etapa]
+    );
+    const idTarefa = rows[0].id_tarefa as number;
 
     for (const data of dados.datas_lembrete) {
       if (!data) continue;
-      lembretes.push({ id_lembrete: contadores.lembrete++, data_programada: data, enviado: false, id_tarefa: nova.id_tarefa });
+      await pool.query("INSERT INTO lembrete (data_programada, id_tarefa) VALUES ($1, $2)", [data, idTarefa]);
     }
 
-    return nova;
+    return this.buscarPorId(idTarefa);
   },
 
   /** RF-15 */
-  aprovar(idTarefa: number) {
-    const tarefa = this.buscarPorId(idTarefa);
-    tarefa.status = "Aprovada";
-    return tarefa;
+  async aprovar(idTarefa: number) {
+    await this.buscarPorId(idTarefa); // garante 404 se não existir
+    await pool.query(
+      "UPDATE tarefa SET id_status = (SELECT id_status FROM status_tarefa WHERE descricao = 'Aprovada') WHERE id_tarefa = $1",
+      [idTarefa]
+    );
+    return this.buscarPorId(idTarefa);
   },
 
   /** RF-15 — reprova e registra o comentário como anotação interna. */
-  reprovar(idTarefa: number, comentario: string, contexto: { idEquipe: number; idEtapa: number; idUsuario: number }) {
-    const tarefa = this.buscarPorId(idTarefa);
-    tarefa.status = "Reprovada/Ajustar";
+  async reprovar(idTarefa: number, comentario: string, contexto: { idEquipe: number; idEtapa: number; idUsuario: number }) {
+    const tarefa = await this.buscarPorId(idTarefa);
+    await pool.query(
+      "UPDATE tarefa SET id_status = (SELECT id_status FROM status_tarefa WHERE descricao = 'Reprovada/Ajustar') WHERE id_tarefa = $1",
+      [idTarefa]
+    );
 
     if (comentario.trim()) {
-      anotacoes.push({
-        id_anotacao: contadores.anotacao++,
-        descricao: `Ajuste solicitado em "${tarefa.titulo}": ${comentario}`,
-        data_registro: new Date().toISOString(),
-        id_usuario: contexto.idUsuario,
-        id_equipe: contexto.idEquipe,
-        id_etapa: contexto.idEtapa,
-      });
+      await pool.query(
+        `INSERT INTO anotacoes (descricao, id_usuario, id_equipe, id_etapa) VALUES ($1, $2, $3, $4)`,
+        [`Ajuste solicitado em "${tarefa.titulo}": ${comentario}`, contexto.idUsuario, contexto.idEquipe, contexto.idEtapa]
+      );
     }
-    return tarefa;
+    return this.buscarPorId(idTarefa);
   },
 
   /** Alterar prazo é restrito ao mentor da equipe — checagem fica no controller. */
-  alterarPrazo(idTarefa: number, novaData: string) {
-    const tarefa = this.buscarPorId(idTarefa);
-    tarefa.data_limite = novaData;
-    return tarefa;
+  async alterarPrazo(idTarefa: number, novaData: string) {
+    await this.buscarPorId(idTarefa);
+    await pool.query("UPDATE tarefa SET data_limite = $1 WHERE id_tarefa = $2", [novaData, idTarefa]);
+    return this.buscarPorId(idTarefa);
   },
 
   // ---- RF-14/RF-16: entregas com histórico de versões ----
-  listarEntregaveis(idTarefa: number) {
-    return entregaveis.filter((e) => e.id_tarefa === idTarefa).sort((a, b) => a.versao - b.versao);
+  async listarEntregaveis(idTarefa: number) {
+    const { rows } = await pool.query(
+      `SELECT id_entregavel, arquivo_url, tipo, data_envio, id_tarefa, id_usuario, versao
+       FROM entregavel WHERE id_tarefa = $1 ORDER BY versao`,
+      [idTarefa]
+    );
+    return rows.map((r) => ({ ...r, data_envio: new Date(r.data_envio).toISOString() }));
   },
 
-  anexarEntrega(idTarefa: number, idUsuario: number, arquivoUrl: string, tipo: string) {
-    const versaoAtual = entregaveis.filter((e) => e.id_tarefa === idTarefa).length;
-    const nova = {
-      id_entregavel: contadores.entregavel++,
-      arquivo_url: arquivoUrl,
-      tipo,
-      data_envio: new Date().toISOString(),
-      id_tarefa: idTarefa,
-      id_usuario: idUsuario,
-      versao: versaoAtual + 1,
-    };
-    entregaveis.push(nova);
+  async anexarEntrega(idTarefa: number, idUsuario: number, arquivoUrl: string, tipo: string) {
+    const { rows: versaoRows } = await pool.query("SELECT COUNT(*)::int AS total FROM entregavel WHERE id_tarefa = $1", [idTarefa]);
+    const novaVersao = versaoRows[0].total + 1;
 
-    const tarefa = this.buscarPorId(idTarefa);
-    if (tarefa.status !== "Aprovada") tarefa.status = "Entregue";
+    const { rows } = await pool.query(
+      `INSERT INTO entregavel (arquivo_url, tipo, id_tarefa, id_usuario, versao)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id_entregavel, arquivo_url, tipo, data_envio, id_tarefa, id_usuario, versao`,
+      [arquivoUrl, tipo, idTarefa, idUsuario, novaVersao]
+    );
 
-    return nova;
+    const tarefa = await this.buscarPorId(idTarefa);
+    if (tarefa.status !== "Aprovada") {
+      await pool.query(
+        "UPDATE tarefa SET id_status = (SELECT id_status FROM status_tarefa WHERE descricao = 'Entregue') WHERE id_tarefa = $1",
+        [idTarefa]
+      );
+    }
+
+    return { ...rows[0], data_envio: new Date(rows[0].data_envio).toISOString() };
   },
 };

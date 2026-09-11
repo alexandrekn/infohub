@@ -1,23 +1,39 @@
-# InfoHub → InovAMF — Backend (Express + TS)
+# InfoHub → InovAMF — Backend (Express + TS + PostgreSQL)
 
-API REST em Node.js + Express + TypeScript. **Sem banco de dados ainda** — os
-dados vivem em memória (`src/data/store.ts`), com exatamente os mesmos nomes
-de campo do `banco.sql`, prontos para virar Prisma + MySQL depois: cada
-`export const algo: Tipo[] = [...]` vira uma tabela, e os `services` trocam
-de "mexer no array" para "chamar `prisma.algo.metodo()`" sem mudar rotas ou
-controllers.
+API REST em Node.js + Express + TypeScript, com **banco de dados PostgreSQL
+de verdade** (via `pg`, sem ORM por enquanto — ver nota sobre Prisma no final).
+Schema em `prisma/schema.sql`, baseado no `banco.sql` original + extensões
+necessárias (múltiplos mentores, `ativo`, `turma`, versionamento de entrega,
+histórico de etapas).
 
-⚠️ Os dados resetam a cada reinício do servidor (`npm run dev`).
+## Pré-requisito: PostgreSQL instalado e rodando
+
+Se ainda não tem Postgres na máquina, instale (Windows: https://www.postgresql.org/download/windows/,
+ou via WSL/Docker). Depois de instalado, crie o banco:
+
+```sql
+CREATE DATABASE infohub;
+```
 
 ## Rodando
 
 ```bash
 npm install
 cp .env.example .env
+```
+
+Edite o `.env` e ajuste `DATABASE_URL` com o usuário/senha do seu Postgres
+local (o padrão assume usuário `postgres`, senha `postgres`, porta `5432`).
+
+```bash
+npm run db:schema   # cria as tabelas
+npm run db:seed     # popula com dados de teste
 npm run dev
 ```
 
 Sobe em `http://localhost:3333`. Teste com `curl http://localhost:3333/health`.
+
+Se precisar recomeçar do zero (apaga tudo e recria): `npm run db:reset`.
 
 ### Contas de teste
 
@@ -34,11 +50,15 @@ Todas com senha **`senha123`**:
 ## Estrutura
 
 ```
+prisma/
+  schema.prisma   documentação do modelo de dados (schema Prisma — ver nota abaixo)
+  schema.sql      DDL real, aplicado via `npm run db:schema`
+  seed.ts         popula o banco com dados de teste via `npm run db:seed`
 src/
   server.ts              ponto de entrada
   app.ts                 monta o Express (middlewares + rotas)
-  config/env.ts          variáveis de ambiente
-  data/store.ts          dados em memória — futura fonte do schema Prisma
+  config/env.ts          variáveis de ambiente (inclui DATABASE_URL)
+  db/pool.ts             pool de conexão do `pg`
   types/index.ts          espelha o banco.sql
   middlewares/
     auth.middleware.ts    autenticar (JWT) + permitirPerfis(...)
@@ -57,6 +77,19 @@ src/
     anotacoes/    RF-10 — nunca exposto ao aluno
     usuarios/     RF-03 — admin cria/desativa contas de admin/mentor
 ```
+
+## Nota sobre Prisma
+
+O projeto foi desenhado para usar Prisma (schema em `prisma/schema.prisma`,
+mantido como documentação do modelo). Na prática, os `services` usam SQL
+direto via `pg` (`src/db/pool.ts`) em vez do Prisma Client — durante o
+desenvolvimento, o ambiente usado para montar e testar este backend não
+conseguia baixar os binários que o Prisma precisa (bloqueio de rede
+específico daquele ambiente, não relacionado à sua máquina). Como o SQL
+gerado bate exatamente com `schema.prisma`, migrar para Prisma depois é
+uma troca mecânica: `npx prisma generate`, apontar `DATABASE_URL`, e trocar
+as queries dos `services` por `prisma.<model>.<metodo>()` — as rotas e
+controllers não precisam mudar.
 
 ## Rotas
 
@@ -85,33 +118,27 @@ Todas sob `/api`, exceto `/health`. Autenticadas com `Authorization: Bearer <tok
 | GET/POST | `/usuarios` | só admin |
 | PATCH | `/usuarios/:id/alternar-ativo` | só admin |
 
-## Testado manualmente
+## Testado de ponta a ponta (com banco real)
 
 Login, filtros do kanban, avançar/retroceder etapa, autorização por perfil
 (admin/mentor/aluno, incluindo tentativas negadas), criar tarefa, alterar
 prazo (confirmado que só mentor consegue), anexar entrega com versionamento,
-aprovar/reprovar com anotação automática, cadastro de ideia criando conta +
-equipe na Etapa 1, e-mail duplicado rejeitado, criar/desativar/reativar
-conta de admin/mentor. Tudo respondendo como esperado.
+aprovar/reprovar com anotação automática (autor correto), cadastro de ideia
+criando conta + equipe + integrante na Etapa 1, e-mail duplicado rejeitado,
+criar/desativar/reativar conta de admin/mentor, múltiplos mentores por
+equipe. Tudo respondendo como esperado, direto no PostgreSQL.
 
 ## Conectando ao frontend
 
-✅ Já conectado — o projeto `infohub-frontend` usa `services/auth.service.ts`
-e `services/data.service.ts`, que falam com esta API (`VITE_API_URL` aponta
+✅ Já conectado — o frontend usa `services/auth.service.ts` e
+`services/data.service.ts`, que falam com esta API (`VITE_API_URL` aponta
 para `http://localhost:3333/api` por padrão). Suba os dois ao mesmo tempo
 (este backend numa porta, `npm run dev` do frontend na 5173) e o login já
 funciona de ponta a ponta.
 
-Dois pontos que o frontend depende e que valem lembrar se mexer na API:
-- `GET /equipes` e `/equipes/minhas` retornam `mentores` (array completo,
-  não só `id_mentores`) e `integrantes[].usuario` já populados.
-- `GET /equipes/:id/anotacoes` retorna `autor` (o usuário que escreveu)
-  em cada anotação.
-
 ## Próximos passos (fora do escopo desta etapa)
 
-- Trocar `src/data/store.ts` por Prisma + MySQL (schema já existe em `banco.sql`,
-  falta só a tabela de junção `equipe_mentor` para suportar múltiplos mentores).
+- Migrar de `pg` para Prisma Client (ver nota acima).
 - E-mail transacional real via Resend (RF-17/18/19) — hoje os lembretes são
   só registrados, sem disparo.
 - Upload de arquivo de verdade para RF-14 (hoje só aceita URL/link).

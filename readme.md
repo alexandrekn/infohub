@@ -1,10 +1,54 @@
-# InfoHub → InovAMF — Frontend (React + TS)
+# InfoHub → InovAMF
+
+Projeto completo: frontend (React) nesta pasta raiz + backend (Express) em `backend/`.
+
+## Guia rápido — rodando os três serviços do zero
+
+### 1. PostgreSQL
+
+Instale o PostgreSQL (se ainda não tiver) e crie o banco:
+
+```sql
+CREATE DATABASE infohub;
+```
+
+### 2. Backend (terminal 1)
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+```
+
+Edite o `.env` do backend e confira o `DATABASE_URL` (usuário/senha do seu Postgres).
+
+```bash
+npm run db:schema
+npm run db:seed
+npm run dev
+```
+
+Deve aparecer "InfoHub API rodando em http://localhost:3333". Detalhes completos: `backend/README.md`.
+
+### 3. Frontend (terminal 2, na raiz do projeto)
+
+```bash
+npm install
+npm run dev
+```
+
+Abra http://localhost:5173 e entre com qualquer conta de teste da tela de
+login (senha `senha123` para todas).
+
+---
 
 Frontend conectado à API real (Express + TS, projeto `infohub-backend`). Todas
 as telas fazem requisições HTTP de verdade — nada de dados mockados por padrão.
 
-⚠️ **Precisa do backend rodando** em `http://localhost:3333` (ver o README do
-`infohub-backend`). Sem ele no ar, a tela de login não vai autenticar.
+⚠️ **Precisa do backend rodando** em `http://localhost:3333` (ver o README da
+pasta `backend/`) — e o backend, por sua vez, precisa de um PostgreSQL local
+com o schema aplicado e populado. Sem os dois no ar, a tela de login não vai
+autenticar.
 
 ## Rodando
 

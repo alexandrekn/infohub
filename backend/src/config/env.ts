@@ -13,4 +13,5 @@ export const env = {
   JWT_SECRET: obrigatorio("JWT_SECRET", "dev-secret-troque-em-producao"),
   JWT_EXPIRES_IN: obrigatorio("JWT_EXPIRES_IN", "7d"),
   CORS_ORIGIN: obrigatorio("CORS_ORIGIN", "http://localhost:5173"),
+  DATABASE_URL: obrigatorio("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/infohub"),
 };

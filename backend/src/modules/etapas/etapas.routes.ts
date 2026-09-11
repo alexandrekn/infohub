@@ -1,8 +1,13 @@
 import { Router } from "express";
-import { etapas } from "../../data/store";
+import { pool } from "../../db/pool";
+import { asyncHandler } from "../../utils/asyncHandler";
 
 export const etapasRoutes = Router();
 
-etapasRoutes.get("/", (_req, res) => {
-  res.json(etapas);
-});
+etapasRoutes.get(
+  "/",
+  asyncHandler(async (_req, res) => {
+    const { rows } = await pool.query("SELECT id_etapa, nome, descricao FROM etapa ORDER BY id_etapa");
+    res.json(rows);
+  })
+);
