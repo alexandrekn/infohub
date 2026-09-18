@@ -1,14 +1,20 @@
 import { Pool } from "pg";
 import { env } from "../config/env";
 
-if (!/^[a-z_][a-z0-9_]*$/.test(env.DB_SCHEMA)) {
-  throw new Error("DB_SCHEMA inválido. Use apenas letras minúsculas, números e underscore, começando por letra/underscore.");
+if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(env.DB_SCHEMA)) {
+  throw new Error(`DB_SCHEMA inválido: ${env.DB_SCHEMA}`);
 }
 
+const databaseUrl = new URL(env.DATABASE_URL);
+
+// Faz todas as consultas da aplicação utilizarem somente o schema da dupla.
+databaseUrl.searchParams.set(
+  "options",
+  `-c search_path=${env.DB_SCHEMA}`
+);
+
 export const pool = new Pool({
-  connectionString: env.DATABASE_URL,
-  // Garante que TODAS as queries do app usem exclusivamente o schema da dupla.
-  options: `-c search_path=${env.DB_SCHEMA}`,
+  connectionString: databaseUrl.toString(),
 });
 
 pool.on("error", (err) => {

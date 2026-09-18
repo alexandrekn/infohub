@@ -3,24 +3,32 @@ import path from "path";
 import { Pool } from "pg";
 import { env } from "../src/config/env";
 
-function validarSchema(schema: string) {
-  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error("DB_SCHEMA inválido.");
-}
-
 async function main() {
-  validarSchema(env.DB_SCHEMA);
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(env.DB_SCHEMA)) {
+    throw new Error(`DB_SCHEMA inválido: ${env.DB_SCHEMA}`);
+  }
+
   const caminhoSchema = path.join(__dirname, "..", "prisma", "schema.sql");
   const sql = fs.readFileSync(caminhoSchema, "utf-8");
 
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
-  const client = await pool.connect();
+  const databaseUrl = new URL(env.DATABASE_URL);
+
+  databaseUrl.searchParams.set(
+    "options",
+    `-c search_path=${env.DB_SCHEMA}`
+  );
+
+  const pool = new Pool({
+    connectionString: databaseUrl.toString(),
+  });
+
   try {
-    await client.query(`CREATE SCHEMA IF NOT EXISTS ${env.DB_SCHEMA}`);
-    await client.query(`SET search_path TO ${env.DB_SCHEMA}`);
-    await client.query(sql);
-    console.log(`✅ Tabelas aplicadas no schema ${env.DB_SCHEMA}.`);
+    await pool.query(sql);
+
+    console.log(
+      `✅ Tabelas criadas com sucesso no schema ${env.DB_SCHEMA}.`
+    );
   } finally {
-    client.release();
     await pool.end();
   }
 }

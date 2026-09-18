@@ -9,12 +9,13 @@ function obrigatorio(nome: string, padrao?: string): string {
 }
 
 export const env = {
-  PORT: Number(process.env.PORT ?? 3333),
+  PORT: Number(process.env.PORT ?? 3005),
   JWT_SECRET: obrigatorio("JWT_SECRET", "dev-secret-troque-em-producao"),
   JWT_EXPIRES_IN: obrigatorio("JWT_EXPIRES_IN", "7d"),
   CORS_ORIGIN: obrigatorio("CORS_ORIGIN", "http://localhost:5173"),
   DATABASE_URL: obrigatorio("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/infohub"),
-  DB_SCHEMA: obrigatorio("DB_SCHEMA", "infohub_dupla"),
+  DB_SCHEMA: obrigatorio("DB_SCHEMA", "infohub_alexandre_gustavo"),
+
 
   // RF-17/18/19/20 — e-mail transacional. Sem RESEND_API_KEY, os e-mails só
   // são registrados no console (modo simulado), sem quebrar o resto do app.
