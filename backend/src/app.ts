@@ -17,7 +17,16 @@ import { usuariosRoutes } from "./modules/usuarios/usuarios.routes";
 
 export const app = express();
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+      directives: {
+        "upgrade-insecure-requests": null,
+      },
+    },
+  })
+);
 app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(express.json());
 app.use(morgan("dev"));
