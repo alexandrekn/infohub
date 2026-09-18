@@ -1,0 +1,247 @@
+// Schema baseado no banco.sql (versão PostgreSQL) do projeto InfoHub → InovAMF.
+// Extensões feitas em cima do schema original, para cobrir decisões tomadas
+// depois da primeira versão do banco:
+//   - equipe_mentor: tabela de junção (banco.sql tinha id_mentor único; a
+//     equipe decidiu que uma equipe pode ter mais de um mentor)
+//   - usuario.ativo: RF-03 (admin pode desativar contas de admin/mentor)
+//   - equipe.turma: RF-24 (filtro por turma/semestre)
+//   - entregavel.versao: RF-16 (histórico de versões de entrega)
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["queryCompiler", "driverAdapters"]
+  engineType      = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PerfilUsuario {
+  aluno
+  mentor
+  admin
+
+  @@map("perfil_usuario")
+}
+
+enum PapelEquipe {
+  lider
+  integrante
+
+  @@map("papel_equipe")
+}
+
+enum AreaIdeia {
+  Saude        @map("Saúde")
+  Educacao     @map("Educação")
+  MeioAmbiente @map("Meio Ambiente")
+  Tecnologia
+  Entretenimento
+  Servicos     @map("Serviços")
+  Outro
+
+  @@map("area_ideia_enum")
+}
+
+enum EstagioIdeia {
+  ApenasIdeia  @map("Apenas ideia")
+  Validacao    @map("Validação")
+  Prototipagem
+  Lancamento   @map("Lançamento")
+
+  @@map("estagio_ideia_enum")
+}
+
+enum ComoConheceu {
+  RedesSociais @map("Redes sociais")
+  Amigos
+  Eventos
+  Outros
+
+  @@map("como_conheceu_enum")
+}
+
+enum StatusTarefaEnum {
+  Pendente
+  EmAndamento        @map("Em andamento")
+  Entregue
+  Atrasada
+  Aprovada
+  ReprovadaAjustar   @map("Reprovada/Ajustar")
+
+  @@map("status_tarefa_enum")
+}
+
+model Curso {
+  idCurso  Int       @id @default(autoincrement()) @map("id_curso")
+  nome     String
+  usuarios Usuario[]
+
+  @@map("cursos")
+}
+
+model Usuario {
+  idUsuario Int           @id @default(autoincrement()) @map("id_usuario")
+  nome      String        @db.VarChar(100)
+  telefone  String        @db.VarChar(15)
+  email     String        @unique @db.VarChar(100)
+  senha     String        @db.VarChar(255)
+  perfil    PerfilUsuario
+  idCurso   Int?          @map("id_curso")
+  semestre  Int?          @db.SmallInt
+  ativo     Boolean       @default(true)
+
+  curso Curso? @relation(fields: [idCurso], references: [idCurso])
+
+  equipesComoIntegrante EquipeUsuario[]
+  equipesComoMentor     EquipeMentor[]
+  entregaveis           Entregavel[]
+  anotacoes             Anotacao[]
+
+  @@map("usuario")
+}
+
+model Etapa {
+  idEtapa   Int    @id @default(autoincrement()) @map("id_etapa")
+  nome      String @db.VarChar(100)
+  descricao String
+
+  equipes   Equipe[]
+  tarefas   Tarefa[]
+  anotacoes Anotacao[]
+  historico HistoricoEtapa[]
+
+  @@map("etapa")
+}
+
+model Equipe {
+  idEquipe       Int           @id @default(autoincrement()) @map("id_equipe")
+  nomeEquipe     String        @map("nome_equipe") @db.VarChar(100)
+  nomeIdeia      String        @map("nome_ideia") @db.VarChar(100)
+  descricaoIdeia String        @map("descricao_ideia")
+  areaIdeia      AreaIdeia     @map("area_ideia")
+  estagioIdeia   EstagioIdeia  @map("estagio_ideia")
+  comoConheceu   ComoConheceu? @map("como_conheceu")
+  linkPitch      String?       @map("link_pitch") @db.VarChar(255)
+  idEtapaAtual   Int           @map("id_etapa_atual")
+  turma          String        @db.VarChar(20)
+
+  etapaAtual  Etapa            @relation(fields: [idEtapaAtual], references: [idEtapa])
+  integrantes EquipeUsuario[]
+  mentores    EquipeMentor[]
+  tarefas     Tarefa[]
+  anotacoes   Anotacao[]
+  historico   HistoricoEtapa[]
+
+  @@map("equipe")
+}
+
+/** Extensão ao banco.sql original — múltiplos mentores por equipe. */
+model EquipeMentor {
+  idEquipe  Int @map("id_equipe")
+  idUsuario Int @map("id_usuario")
+
+  equipe  Equipe  @relation(fields: [idEquipe], references: [idEquipe], onDelete: Cascade)
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+
+  @@id([idEquipe, idUsuario])
+  @@map("equipe_mentor")
+}
+
+model EquipeUsuario {
+  idEquipeUsuario Int         @id @default(autoincrement()) @map("id_equipe_usuario")
+  idEquipe        Int         @map("id_equipe")
+  idUsuario       Int         @map("id_usuario")
+  papel           PapelEquipe
+
+  equipe  Equipe  @relation(fields: [idEquipe], references: [idEquipe], onDelete: Cascade)
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+
+  @@unique([idEquipe, idUsuario])
+  @@map("equipe_usuario")
+}
+
+model StatusTarefa {
+  idStatus  Int              @id @default(autoincrement()) @map("id_status")
+  descricao StatusTarefaEnum @unique
+
+  tarefas Tarefa[]
+
+  @@map("status_tarefa")
+}
+
+model Tarefa {
+  idTarefa   Int      @id @default(autoincrement()) @map("id_tarefa")
+  titulo     String   @db.VarChar(100)
+  descricao  String
+  dataLimite DateTime @map("data_limite") @db.Date
+  idEquipe   Int      @map("id_equipe")
+  idEtapa    Int      @map("id_etapa")
+  idStatus   Int      @map("id_status")
+
+  equipe Equipe       @relation(fields: [idEquipe], references: [idEquipe], onDelete: Cascade)
+  etapa  Etapa        @relation(fields: [idEtapa], references: [idEtapa])
+  status StatusTarefa @relation(fields: [idStatus], references: [idStatus])
+
+  entregaveis Entregavel[]
+  lembretes   Lembrete[]
+
+  @@map("tarefa")
+}
+
+model Entregavel {
+  idEntregavel Int      @id @default(autoincrement()) @map("id_entregavel")
+  arquivoUrl   String   @map("arquivo_url") @db.VarChar(255)
+  tipo         String?  @db.VarChar(50)
+  dataEnvio    DateTime @default(now()) @map("data_envio")
+  idTarefa     Int      @map("id_tarefa")
+  idUsuario    Int      @map("id_usuario")
+  /// Extensão ao banco.sql original — histórico de versões (RF-16).
+  versao       Int      @default(1)
+
+  tarefa  Tarefa  @relation(fields: [idTarefa], references: [idTarefa], onDelete: Cascade)
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+
+  @@map("entregavel")
+}
+
+model Anotacao {
+  idAnotacao   Int      @id @default(autoincrement()) @map("id_anotacao")
+  descricao    String
+  dataRegistro DateTime @default(now()) @map("data_registro")
+  idUsuario    Int      @map("id_usuario")
+  idEquipe     Int      @map("id_equipe")
+  idEtapa      Int      @map("id_etapa")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  equipe  Equipe  @relation(fields: [idEquipe], references: [idEquipe], onDelete: Cascade)
+  etapa   Etapa   @relation(fields: [idEtapa], references: [idEtapa])
+
+  @@map("anotacoes")
+}
+
+model Lembrete {
+  idLembrete     Int      @id @default(autoincrement()) @map("id_lembrete")
+  dataProgramada DateTime @map("data_programada") @db.Date
+  enviado        Boolean  @default(false)
+  idTarefa       Int      @map("id_tarefa")
+
+  tarefa Tarefa @relation(fields: [idTarefa], references: [idTarefa], onDelete: Cascade)
+
+  @@map("lembrete")
+}
+
+/// Extensão ao banco.sql original — histórico de etapas concluídas (RF-08).
+model HistoricoEtapa {
+  idEquipe    Int      @map("id_equipe")
+  idEtapa     Int      @map("id_etapa")
+  dataEntrada DateTime @default(now()) @map("data_entrada") @db.Date
+
+  equipe Equipe @relation(fields: [idEquipe], references: [idEquipe], onDelete: Cascade)
+  etapa  Etapa  @relation(fields: [idEtapa], references: [idEtapa])
+
+  @@id([idEquipe, idEtapa])
+  @@map("historico_etapa")
+}

@@ -1,0 +1,16 @@
+.ih-dashboard {
+  display: flex;
+  min-height: 100vh;
+}
+
+.ih-dashboard__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ih-dashboard__content {
+  padding: var(--space-6);
+  flex: 1;
+}

@@ -1,0 +1,51 @@
+:root {
+  /* Marca — gradiente laranja/vermelho do logo InfoHub sobre azul-marinho */
+  --color-ember-500: #ea4b34;
+  --color-ember-600: #d63a24;
+  --color-amber-500: #f6a823;
+  --brand-gradient: linear-gradient(135deg, var(--color-ember-500), var(--color-amber-500));
+
+  --color-navy-900: #16223f;
+  --color-navy-700: #2a3b63;
+  --color-navy-500: #4a5d8a;
+
+  --color-bg: #f5f6fb;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #eef0f7;
+  --color-border: #e2e5f0;
+  --color-muted: #6b7280;
+  --color-muted-2: #9099ab;
+
+  --color-success: #1f9d6b;
+  --color-success-bg: #e6f6ef;
+  --color-warning: #d98f1b;
+  --color-warning-bg: #fdf1de;
+  --color-danger: #d64545;
+  --color-danger-bg: #fbe9e9;
+  --color-info: #3969d1;
+  --color-info-bg: #e9f0fc;
+
+  --font-display: "Sora", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Menlo", monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(22, 34, 63, 0.06);
+  --shadow-md: 0 6px 20px rgba(22, 34, 63, 0.08);
+  --shadow-lg: 0 16px 40px rgba(22, 34, 63, 0.14);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --sidebar-w: 248px;
+}

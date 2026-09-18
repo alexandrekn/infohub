@@ -1,0 +1,63 @@
+.ih-sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--color-navy-900);
+  color: #fff;
+  min-height: 100vh;
+  padding: var(--space-5) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ih-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  padding: 0 var(--space-2);
+}
+
+.ih-sidebar__logo {
+  width: 100%;
+  max-width: 168px;
+  height: auto;
+  display: block;
+}
+
+.ih-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ih-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ih-sidebar__link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.ih-sidebar__link--ativo {
+  background: rgba(234, 75, 52, 0.16);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .ih-sidebar {
+    display: none;
+  }
+}
