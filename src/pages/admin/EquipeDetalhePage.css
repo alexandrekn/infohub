@@ -60,6 +60,123 @@
   margin-bottom: 0;
 }
 
+.ih-etapas {
+  margin-bottom: var(--space-5);
+}
+
+.ih-etapas__aviso {
+  font-size: 12px;
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+.ih-etapas__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.ih-etapas__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ih-etapas__lista li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.ih-etapas__lista li.ih-etapas__item--atual {
+  background: var(--color-warning-bg);
+}
+
+.ih-etapas__ordem {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted-2);
+  width: 20px;
+  text-align: center;
+}
+
+.ih-etapas__nome {
+  flex: 1;
+  font-size: 13px;
+}
+
+.ih-etapas__badge-atual {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-warning);
+}
+
+.ih-etapas__remover {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.ih-etapas__remover:hover {
+  text-decoration: underline;
+}
+
+.ih-lembrete-manual {
+  margin-bottom: var(--space-5);
+}
+
+.ih-lembrete-manual__sucesso {
+  font-size: 12.5px;
+  color: var(--color-success);
+  margin-top: var(--space-2);
+}
+
+.ih-tarefa-linha__anexar-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ih-tarefa-linha__modo-entrega {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ih-tarefa-linha__modo-entrega button {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--color-navy-700);
+}
+
+.ih-tarefa-linha__modo-entrega button.ih-tarefa-linha__modo--ativo {
+  background: var(--color-navy-900);
+  color: #fff;
+  border-color: var(--color-navy-900);
+}
+
+.ih-tarefa-linha__dica-arquivo {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
 .ih-detalhe__grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;

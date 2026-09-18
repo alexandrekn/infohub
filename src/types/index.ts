@@ -45,8 +45,10 @@ export interface Usuario {
 
 export interface Etapa {
   id_etapa: number;
+  id_equipe: number;
   nome: string;
   descricao: string;
+  ordem: number;
 }
 
 export interface Equipe {
@@ -64,6 +66,8 @@ export interface Equipe {
   id_etapa_atual: number;
   turma: string;
   integrantes?: IntegranteEquipe[];
+  /** Etapas próprias desta equipe — padrão 6, mas o mentor pode ajustar por equipe. */
+  etapas?: Etapa[];
 }
 
 export interface IntegranteEquipe {

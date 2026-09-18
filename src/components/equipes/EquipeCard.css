@@ -35,6 +35,12 @@
   line-height: 1.4;
 }
 
+.ih-equipe-card__etapa {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-ember-600);
+}
+
 .ih-equipe-card__footer {
   display: flex;
   flex-direction: column;

@@ -6,19 +6,17 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { StageTracker } from "@/components/ui/StageTracker";
 import { useAuth } from "@/hooks/useAuth";
 import { dataService } from "@/services/data.service";
-import type { Equipe, Etapa, Tarefa } from "@/types";
+import type { Equipe, Tarefa } from "@/types";
 import logoIcon from "@/assets/logo-infohub-icon.png";
 import "./AlunoDashboardPage.css";
 
 export function AlunoDashboardPage() {
   const { usuario } = useAuth();
   const [equipes, setEquipes] = useState<Equipe[]>([]);
-  const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [tarefasPorEquipe, setTarefasPorEquipe] = useState<Record<number, Tarefa[]>>({});
 
   useEffect(() => {
     if (!usuario) return;
-    dataService.listarEtapas().then(setEtapas);
     dataService.listarEquipesDoAluno(usuario.id_usuario).then(async (lista) => {
       setEquipes(lista);
       const entradas = await Promise.all(
@@ -60,7 +58,7 @@ export function AlunoDashboardPage() {
             </div>
 
             <div className="ih-aluno__tracker">
-              <StageTracker etapas={etapas} etapaAtualId={equipe.id_etapa_atual} />
+              <StageTracker etapas={equipe.etapas ?? []} etapaAtualId={equipe.id_etapa_atual} />
             </div>
 
             <p className="ih-aluno__mentor">

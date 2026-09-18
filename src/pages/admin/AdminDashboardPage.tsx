@@ -4,15 +4,14 @@ import { EquipeCard } from "@/components/equipes/EquipeCard";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cursosService } from "@/services/cursos.service";
-import { contarPorEtapa, dataService, exportarEquipesCSV } from "@/services/data.service";
-import type { Curso, Equipe, Etapa, StatusTarefa, Tarefa, Usuario } from "@/types";
+import { contarPorOrdem, dataService, exportarEquipesCSV, ordemAtual } from "@/services/data.service";
+import type { Curso, Equipe, StatusTarefa, Tarefa, Usuario } from "@/types";
 import "./AdminDashboardPage.css";
 
 const STATUS_TAREFA: StatusTarefa[] = ["Pendente", "Em andamento", "Entregue", "Atrasada", "Aprovada", "Reprovada/Ajustar"];
 
 export function AdminDashboardPage() {
   const [equipes, setEquipes] = useState<Equipe[]>([]);
-  const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [mentores, setMentores] = useState<Usuario[]>([]);
@@ -25,7 +24,6 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     dataService.listarEquipes().then(setEquipes);
-    dataService.listarEtapas().then(setEtapas);
     dataService.listarTodasTarefas().then(setTarefas);
     cursosService.listar().then(setCursos);
     dataService.listarUsuariosPorPerfil(["mentor"]).then(setMentores);
@@ -56,9 +54,23 @@ export function AdminDashboardPage() {
     });
   }, [equipes, tarefas, busca, filtroArea, filtroTurma, filtroMentor, filtroCurso, filtroStatusTarefa]);
 
-  const contagemPorEtapa = useMemo(() => contarPorEtapa(equipesFiltradas), [equipesFiltradas]);
+  const contagemPorOrdem = useMemo(() => contarPorOrdem(equipesFiltradas), [equipesFiltradas]);
+
+  // Cada equipe tem seu próprio número de etapas (padrão 6, ajustável por equipe) —
+  // as colunas do funil vão até a maior quantidade de etapas entre as equipes visíveis.
+  const totalColunas = useMemo(
+    () => Math.max(6, ...equipesFiltradas.map((e) => e.etapas?.length ?? 0)),
+    [equipesFiltradas]
+  );
+  const colunas = useMemo(() => Array.from({ length: totalColunas }, (_, i) => i + 1), [totalColunas]);
+
+  function labelDaColuna(ordem: number): string {
+    const representante = equipesFiltradas.find((e) => e.etapas?.some((et) => et.ordem === ordem));
+    return representante?.etapas?.find((et) => et.ordem === ordem)?.nome ?? `Etapa ${ordem}`;
+  }
+
   const tarefasAtrasadas = tarefas.filter((t) => t.status === "Atrasada").length;
-  const prontasParaInovAMF = equipes.filter((e) => e.id_etapa_atual === 6).length;
+  const prontasParaInovAMF = equipes.filter((e) => ordemAtual(e) === (e.etapas?.length ?? 0)).length;
 
   function limparFiltros() {
     setBusca("");
@@ -135,7 +147,7 @@ export function AdminDashboardPage() {
           <button className="ih-admin__limpar" onClick={limparFiltros}>
             Limpar filtros
           </button>
-          <Button variant="secondary" onClick={() => exportarEquipesCSV(equipesFiltradas, etapas)}>
+          <Button variant="secondary" onClick={() => exportarEquipesCSV(equipesFiltradas)}>
             Exportar CSV
           </Button>
         </div>
@@ -160,15 +172,15 @@ export function AdminDashboardPage() {
       </div>
 
       <div className="ih-kanban">
-        {etapas.map((etapa) => (
-          <div className="ih-kanban__coluna" key={etapa.id_etapa}>
+        {colunas.map((ordem) => (
+          <div className="ih-kanban__coluna" key={ordem}>
             <div className="ih-kanban__coluna-header">
-              <span>{etapa.nome}</span>
-              <span className="ih-kanban__contador">{contagemPorEtapa[etapa.id_etapa] ?? 0}</span>
+              <span>{labelDaColuna(ordem)}</span>
+              <span className="ih-kanban__contador">{contagemPorOrdem[ordem] ?? 0}</span>
             </div>
             <div className="ih-kanban__cards">
               {equipesFiltradas
-                .filter((e) => e.id_etapa_atual === etapa.id_etapa)
+                .filter((e) => ordemAtual(e) === ordem)
                 .map((equipe) => (
                   <EquipeCard
                     key={equipe.id_equipe}
@@ -176,7 +188,7 @@ export function AdminDashboardPage() {
                     mentores={equipe.mentores ?? []}
                   />
                 ))}
-              {contagemPorEtapa[etapa.id_etapa] === undefined && (
+              {(contagemPorOrdem[ordem] ?? 0) === 0 && (
                 <p className="ih-kanban__vazio">Nenhuma equipe nesta etapa</p>
               )}
             </div>

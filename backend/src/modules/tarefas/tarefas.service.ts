@@ -1,5 +1,6 @@
 import { pool } from "../../db/pool";
 import { ApiError } from "../../utils/ApiError";
+import { notificacoesService } from "../../services/email/notificacoes.service";
 import type { CriarTarefaInput } from "./tarefas.schema";
 
 const SELECT_TAREFA = `
@@ -9,6 +10,16 @@ const SELECT_TAREFA = `
   FROM tarefa t
   JOIN status_tarefa st ON st.id_status = t.id_status
 `;
+
+async function nomeDaEquipe(idEquipe: number): Promise<string> {
+  const { rows } = await pool.query("SELECT nome_equipe FROM equipe WHERE id_equipe = $1", [idEquipe]);
+  return rows[0]?.nome_equipe ?? "";
+}
+
+async function nomeDoUsuario(idUsuario: number): Promise<string> {
+  const { rows } = await pool.query("SELECT nome FROM usuario WHERE id_usuario = $1", [idUsuario]);
+  return rows[0]?.nome ?? "";
+}
 
 export const tarefasService = {
   async listarPorEquipe(idEquipe: number) {
@@ -27,7 +38,7 @@ export const tarefasService = {
     return rows[0];
   },
 
-  /** RF-11/RF-17 — cria a tarefa e já registra os lembretes automáticos. */
+  /** RF-11/RF-17 — cria a tarefa, registra os lembretes automáticos e avisa a equipe (RF-18). */
   async criar(idEquipe: number, dados: CriarTarefaInput) {
     const { rows } = await pool.query(
       `INSERT INTO tarefa (titulo, descricao, data_limite, id_equipe, id_etapa, id_status)
@@ -42,20 +53,28 @@ export const tarefasService = {
       await pool.query("INSERT INTO lembrete (data_programada, id_tarefa) VALUES ($1, $2)", [data, idTarefa]);
     }
 
-    return this.buscarPorId(idTarefa);
+    const tarefa = await this.buscarPorId(idTarefa);
+    const nomeEquipe = await nomeDaEquipe(idEquipe);
+    void notificacoesService.novaTarefa(idEquipe, nomeEquipe, tarefa.titulo, tarefa.data_limite);
+
+    return tarefa;
   },
 
-  /** RF-15 */
+  /** RF-15 — aprova e avisa a equipe (RF-18). */
   async aprovar(idTarefa: number) {
-    await this.buscarPorId(idTarefa); // garante 404 se não existir
+    const tarefaAntes = await this.buscarPorId(idTarefa);
     await pool.query(
       "UPDATE tarefa SET id_status = (SELECT id_status FROM status_tarefa WHERE descricao = 'Aprovada') WHERE id_tarefa = $1",
       [idTarefa]
     );
+
+    const nomeEquipe = await nomeDaEquipe(tarefaAntes.id_equipe);
+    void notificacoesService.entregaAprovada(tarefaAntes.id_equipe, nomeEquipe, tarefaAntes.titulo);
+
     return this.buscarPorId(idTarefa);
   },
 
-  /** RF-15 — reprova e registra o comentário como anotação interna. */
+  /** RF-15 — reprova, registra o comentário como anotação interna e avisa a equipe (RF-18). */
   async reprovar(idTarefa: number, comentario: string, contexto: { idEquipe: number; idEtapa: number; idUsuario: number }) {
     const tarefa = await this.buscarPorId(idTarefa);
     await pool.query(
@@ -68,6 +87,9 @@ export const tarefasService = {
         `INSERT INTO anotacoes (descricao, id_usuario, id_equipe, id_etapa) VALUES ($1, $2, $3, $4)`,
         [`Ajuste solicitado em "${tarefa.titulo}": ${comentario}`, contexto.idUsuario, contexto.idEquipe, contexto.idEtapa]
       );
+
+      const nomeEquipe = await nomeDaEquipe(contexto.idEquipe);
+      void notificacoesService.entregaReprovada(contexto.idEquipe, nomeEquipe, tarefa.titulo, comentario);
     }
     return this.buscarPorId(idTarefa);
   },
@@ -89,6 +111,7 @@ export const tarefasService = {
     return rows.map((r) => ({ ...r, data_envio: new Date(r.data_envio).toISOString() }));
   },
 
+  /** RF-14 — aceita tanto um link quanto o caminho de um arquivo enviado por upload real. */
   async anexarEntrega(idTarefa: number, idUsuario: number, arquivoUrl: string, tipo: string) {
     const { rows: versaoRows } = await pool.query("SELECT COUNT(*)::int AS total FROM entregavel WHERE id_tarefa = $1", [idTarefa]);
     const novaVersao = versaoRows[0].total + 1;
@@ -106,6 +129,9 @@ export const tarefasService = {
         [idTarefa]
       );
     }
+
+    const [nomeEquipe, nomeUsuario] = await Promise.all([nomeDaEquipe(tarefa.id_equipe), nomeDoUsuario(idUsuario)]);
+    void notificacoesService.arquivoEntregue(tarefa.id_equipe, nomeEquipe, tarefa.titulo, nomeUsuario);
 
     return { ...rows[0], data_envio: new Date(rows[0].data_envio).toISOString() };
   },

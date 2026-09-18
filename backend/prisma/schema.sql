@@ -32,12 +32,6 @@ CREATE TABLE usuario (
     FOREIGN KEY (id_curso) REFERENCES cursos(id_curso)
 );
 
-CREATE TABLE etapa (
-    id_etapa SERIAL PRIMARY KEY,
-    nome VARCHAR(100) NOT NULL,
-    descricao TEXT NOT NULL
-);
-
 CREATE TABLE equipe (
     id_equipe SERIAL PRIMARY KEY,
     nome_equipe VARCHAR(100) NOT NULL,
@@ -47,10 +41,24 @@ CREATE TABLE equipe (
     estagio_ideia VARCHAR(30) NOT NULL,
     como_conheceu VARCHAR(30),
     link_pitch VARCHAR(255),
-    id_etapa_atual INT NOT NULL,
-    turma VARCHAR(20) NOT NULL,
-    FOREIGN KEY (id_etapa_atual) REFERENCES etapa(id_etapa)
+    id_etapa_atual INT,
+    turma VARCHAR(20) NOT NULL
 );
+
+-- Cada equipe tem seu próprio conjunto de etapas (padrão: as 6 do funil
+-- InfoHub → InovAMF, copiadas no cadastro). O mentor pode acrescentar ou
+-- remover etapas de uma equipe específica sem afetar as demais.
+CREATE TABLE etapa (
+    id_etapa SERIAL PRIMARY KEY,
+    id_equipe INT NOT NULL,
+    nome VARCHAR(100) NOT NULL,
+    descricao TEXT NOT NULL,
+    ordem SMALLINT NOT NULL,
+    FOREIGN KEY (id_equipe) REFERENCES equipe(id_equipe) ON DELETE CASCADE,
+    UNIQUE (id_equipe, ordem)
+);
+
+ALTER TABLE equipe ADD FOREIGN KEY (id_etapa_atual) REFERENCES etapa(id_etapa);
 
 CREATE TABLE equipe_mentor (
     id_equipe INT NOT NULL,

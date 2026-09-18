@@ -44,8 +44,10 @@ export type UsuarioPublico = Omit<Usuario, "senha_hash">;
 
 export interface Etapa {
   id_etapa: number;
+  id_equipe: number;
   nome: string;
   descricao: string;
+  ordem: number;
 }
 
 export interface IntegranteEquipe {

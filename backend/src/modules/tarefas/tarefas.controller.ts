@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { ApiError } from "../../utils/ApiError";
 import { tarefasService } from "./tarefas.service";
 import { equipesService } from "../equipes/equipes.service";
+import { tipoLegivel } from "../../middlewares/upload.middleware";
 import { criarTarefaSchema, reprovarTarefaSchema, alterarPrazoSchema, anexarEntregaSchema } from "./tarefas.schema";
 
 async function podeGerenciarEquipe(req: Request, idEquipe: number): Promise<boolean> {
@@ -100,6 +101,24 @@ export const tarefasController = {
 
     const { arquivo_url, tipo } = anexarEntregaSchema.parse(req.body);
     const entrega = await tarefasService.anexarEntrega(idTarefa, usuario.id_usuario, arquivo_url, tipo);
+    res.status(201).json(entrega);
+  },
+
+  // POST /api/tarefas/:id/entregaveis/upload — RF-14, upload de arquivo de verdade (multipart)
+  async anexarEntregaArquivo(req: Request, res: Response) {
+    const idTarefa = Number(req.params.id);
+    const tarefa = await tarefasService.buscarPorId(idTarefa);
+    const usuario = req.usuario!;
+
+    if (usuario.perfil !== "aluno" || !(await equipesService.ehIntegranteDaEquipe(tarefa.id_equipe, usuario.id_usuario))) {
+      throw ApiError.forbidden("Só integrantes da equipe podem enviar entregas.");
+    }
+
+    const arquivo = req.file;
+    if (!arquivo) throw ApiError.badRequest("Nenhum arquivo enviado.");
+
+    const arquivoUrl = `/uploads/${arquivo.filename}`;
+    const entrega = await tarefasService.anexarEntrega(idTarefa, usuario.id_usuario, arquivoUrl, tipoLegivel(arquivo.mimetype));
     res.status(201).json(entrega);
   },
 };

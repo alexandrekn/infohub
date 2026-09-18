@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { nomeEtapaAtual } from "@/services/data.service";
 import type { Equipe, Usuario } from "@/types";
 import "./EquipeCard.css";
 
@@ -16,6 +17,7 @@ export function EquipeCard({ equipe, mentores }: { equipe: Equipe; mentores?: Us
           <Badge tom="neutro">{equipe.area_ideia}</Badge>
         </div>
         <p className="ih-equipe-card__ideia">{equipe.nome_ideia}</p>
+        <p className="ih-equipe-card__etapa">{nomeEtapaAtual(equipe)}</p>
         <div className="ih-equipe-card__footer">
           <span>Líder: {lider?.nome ?? "—"}</span>
           <span>{nomesMentores ? `Mentor(es): ${nomesMentores}` : "Sem mentor"}</span>

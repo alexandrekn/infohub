@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { pool } from "../../db/pool";
 import { ApiError } from "../../utils/ApiError";
 import { assinarToken } from "../../utils/jwt";
+import { ETAPAS_PADRAO } from "../../constants/etapasPadrao";
+import { notificacoesService } from "../../services/email/notificacoes.service";
 import type { Usuario, UsuarioPublico } from "../../types";
 import type { CadastroIdeiaInput } from "./auth.schema";
 
@@ -80,10 +82,20 @@ export const authService = {
 
       const { rows: equipeRows } = await client.query(
         `INSERT INTO equipe (nome_equipe, nome_ideia, descricao_ideia, area_ideia, estagio_ideia, como_conheceu, link_pitch, id_etapa_atual, turma)
-         VALUES ($1, $1, $2, $3, $4, $5, NULL, 1, $6) RETURNING id_equipe`,
+         VALUES ($1, $1, $2, $3, $4, $5, NULL, NULL, $6) RETURNING id_equipe`,
         [payload.nome_ideia, payload.descricao_ideia, payload.area_ideia, payload.estagio_ideia, payload.como_conheceu ?? null, TURMA_ATUAL]
       );
       const idEquipe = equipeRows[0].id_equipe as number;
+
+      let primeiraEtapaId: number | null = null;
+      for (let i = 0; i < ETAPAS_PADRAO.length; i++) {
+        const { rows: etapaRows } = await client.query(
+          "INSERT INTO etapa (id_equipe, nome, descricao, ordem) VALUES ($1, $2, $3, $4) RETURNING id_etapa",
+          [idEquipe, ETAPAS_PADRAO[i].nome, ETAPAS_PADRAO[i].descricao, i + 1]
+        );
+        if (i === 0) primeiraEtapaId = etapaRows[0].id_etapa;
+      }
+      await client.query("UPDATE equipe SET id_etapa_atual = $1 WHERE id_equipe = $2", [primeiraEtapaId, idEquipe]);
 
       await client.query("INSERT INTO equipe_usuario (id_equipe, id_usuario, papel) VALUES ($1, $2, 'lider')", [idEquipe, lider.id_usuario]);
 
@@ -95,9 +107,12 @@ export const authService = {
         );
       }
 
-      await client.query("INSERT INTO historico_etapa (id_equipe, id_etapa) VALUES ($1, 1)", [idEquipe]);
+      await client.query("INSERT INTO historico_etapa (id_equipe, id_etapa) VALUES ($1, $2)", [idEquipe, primeiraEtapaId]);
 
       await client.query("COMMIT");
+
+      // Fora da transação: se o e-mail falhar, não deve desfazer o cadastro já confirmado.
+      void notificacoesService.novoCadastro(lider.nome, payload.nome_ideia);
 
       const token = assinarToken({ id_usuario: lider.id_usuario, perfil: lider.perfil, email: lider.email });
       return { token, usuario: paraPublico(lider) };

@@ -1,8 +1,11 @@
 # InfoHub → InovAMF
 
 Projeto completo: frontend (React) nesta pasta raiz + backend (Express) em `backend/`.
+O backend serve o frontend já buildado — em produção (ou com `npm start`),
+**tudo roda numa porta só**, o que facilita empacotar como um serviço único
+(ex.: deploy no Coolify).
 
-## Guia rápido — rodando os três serviços do zero
+## Guia rápido — rodando do zero
 
 ### 1. PostgreSQL
 
@@ -12,33 +15,54 @@ Instale o PostgreSQL (se ainda não tiver) e crie o banco:
 CREATE DATABASE infohub;
 ```
 
-### 2. Backend (terminal 1)
+### 2. Backend — instalar e configurar
 
 ```bash
 cd backend
-npm install
 cp .env.example .env
+cd ..
+npm install
 ```
 
-Edite o `.env` do backend e confira o `DATABASE_URL` (usuário/senha do seu Postgres).
+Edite `backend/.env` e confira o `DATABASE_URL` (usuário/senha do seu
+Postgres). O `npm install` na raiz já instala as dependências do frontend
+**e** do backend (via `postinstall`) — não precisa rodar `npm install`
+dentro de `backend/` também.
 
 ```bash
+cd backend
 npm run db:schema
 npm run db:seed
-npm run dev
+cd ..
 ```
 
-Deve aparecer "InfoHub API rodando em http://localhost:3333". Detalhes completos: `backend/README.md`.
+### 3. Rodando
 
-### 3. Frontend (terminal 2, na raiz do projeto)
+**Opção A — um comando só, tudo numa porta** (o jeito que vai rodar em
+produção/Coolify):
 
 ```bash
-npm install
-npm run dev
+npm start
 ```
 
-Abra http://localhost:5173 e entre com qualquer conta de teste da tela de
-login (senha `senha123` para todas).
+Builda o frontend e o backend, e sobe tudo em `http://localhost:3333`
+(o backend serve a API em `/api/*` e o site em `/`). Abra
+`http://localhost:3333` e pronto.
+
+**Opção B — dois servidores separados, com hot-reload** (melhor pra
+desenvolver, já que o frontend recarrega sozinho a cada mudança):
+
+```bash
+npm run dev:all
+```
+
+Sobe o backend (`localhost:3333`) e o Vite (`localhost:5173`) juntos, num
+terminal só — o Vite já tem proxy configurado pra `/api` e `/uploads`, então
+não precisa se preocupar com CORS nem com URL do backend. Abra
+`http://localhost:5173`.
+
+Nos dois casos, entre com qualquer conta de teste da tela de login (senha
+`senha123` para todas).
 
 ---
 
@@ -119,3 +143,27 @@ Se precisar demonstrar sem o backend no ar, troque:
 - `@/services/data.service` → `@/services/mock/dataService.mock` (nas páginas de admin/aluno/mentor)
 
 As assinaturas das funções são as mesmas, então a troca é só na importação.
+
+## Deploy (Coolify ou qualquer PaaS)
+
+A raiz do repositório já tem `build` e `start` no `package.json` — a maioria
+dos builders (Nixpacks, que o Coolify usa por padrão) detecta isso sozinho:
+roda `npm install`, depois `npm run build`, depois `npm start`. Como o
+backend serve o frontend buildado, o app inteiro é **um serviço só, numa
+porta só** — não precisa de dois apps/dois domínios no Coolify.
+
+O que configurar por fora do código:
+- **Banco**: crie um recurso PostgreSQL no Coolify (ou aponte pra um
+  externo) e defina `DATABASE_URL` nas variáveis de ambiente do app.
+- **Primeira execução**: rode `npm --prefix backend run db:schema` uma vez
+  (via terminal do Coolify, ou como um comando de deploy à parte) pra criar
+  as tabelas — não é automático no `start`, de propósito, pra não arriscar
+  rodar de novo sem querer.
+- **`JWT_SECRET`**: troque pelo valor de produção.
+- **`CORS_ORIGIN`**: pode apontar pro próprio domínio do app (já que
+  frontend e backend são servidos juntos, isso deixa de ser crítico, mas
+  vale configurar mesmo assim).
+- **`RESEND_API_KEY`** / **`RESEND_FROM_EMAIL`**: se quiser e-mail de
+  verdade em produção (ver `backend/README.md`).
+- **`PORT`**: o Coolify normalmente injeta essa variável sozinho; o backend
+  já respeita `process.env.PORT` se ela existir.

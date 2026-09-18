@@ -7,7 +7,7 @@ import { StageTracker } from "@/components/ui/StageTracker";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
-import { dataService, MODELOS_TAREFA_POR_ETAPA } from "@/services/data.service";
+import { dataService, MODELOS_TAREFA_POR_ETAPA, ordemAtual, urlArquivoEntrega } from "@/services/data.service";
 import type { Anotacao, Entregavel, Equipe, Etapa, HistoricoEtapa, Tarefa } from "@/types";
 import "./EquipeDetalhePage.css";
 
@@ -16,7 +16,6 @@ export function EquipeDetalhePage() {
   const { usuario } = useAuth();
 
   const [equipe, setEquipe] = useState<Equipe | null>(null);
-  const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [historico, setHistorico] = useState<HistoricoEtapa[]>([]);
   const [anotacoes, setAnotacoes] = useState<Anotacao[]>([]);
@@ -25,10 +24,11 @@ export function EquipeDetalhePage() {
   const idEquipe = Number(id);
 
   async function recarregar() {
+    const podeVerAnotacoes = usuario?.perfil === "admin" || usuario?.perfil === "mentor";
     const [eq, hist, anots, tf] = await Promise.all([
       dataService.buscarEquipe(idEquipe),
       dataService.listarHistoricoEtapas(idEquipe),
-      dataService.listarAnotacoes(idEquipe),
+      podeVerAnotacoes ? dataService.listarAnotacoes(idEquipe) : Promise.resolve([]),
       dataService.listarTarefasPorEquipe(idEquipe),
     ]);
     setEquipe(eq ?? null);
@@ -43,7 +43,6 @@ export function EquipeDetalhePage() {
 
   useEffect(() => {
     if (!id) return;
-    dataService.listarEtapas().then(setEtapas);
     recarregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -56,6 +55,7 @@ export function EquipeDetalhePage() {
     );
   }
 
+  const etapas = equipe.etapas ?? [];
   const mentores = equipe.mentores ?? [];
   const souAdmin = usuario.perfil === "admin";
   const souMentorDaEquipe = usuario.perfil === "mentor" && equipe.id_mentores?.includes(usuario.id_usuario);
@@ -83,15 +83,21 @@ export function EquipeDetalhePage() {
         <StageTracker etapas={etapas} etapaAtualId={equipe.id_etapa_atual} />
         {podeGerenciarEtapa && (
           <div className="ih-detalhe__acoes-etapa">
-            <Button variant="secondary" onClick={retrocederEtapa} disabled={equipe.id_etapa_atual <= 1}>
+            <Button variant="secondary" onClick={retrocederEtapa} disabled={(ordemAtual(equipe) ?? 1) <= 1}>
               ← Retroceder etapa
             </Button>
-            <Button onClick={avancarEtapa} disabled={equipe.id_etapa_atual >= etapas.length}>
+            <Button onClick={avancarEtapa} disabled={(ordemAtual(equipe) ?? 0) >= etapas.length}>
               Avançar etapa →
             </Button>
           </div>
         )}
       </Card>
+
+      {podeGerenciarEtapa && <LembreteManualCard idEquipe={idEquipe} />}
+
+      {podeGerenciarEtapa && (
+        <EtapasSecao etapas={etapas} idEquipe={idEquipe} idEtapaAtual={equipe.id_etapa_atual} onMudou={recarregar} />
+      )}
 
       <div className="ih-detalhe__grid">
         <Card className="ih-detalhe__bloco">
@@ -280,7 +286,8 @@ function NovaTarefaForm({
   const [lembretes, setLembretes] = useState<string[]>([""]);
   const [enviando, setEnviando] = useState(false);
 
-  const modelos = MODELOS_TAREFA_POR_ETAPA[idEtapa] ?? [];
+  const ordemSelecionada = etapas.find((e) => e.id_etapa === idEtapa)?.ordem;
+  const modelos = (ordemSelecionada && MODELOS_TAREFA_POR_ETAPA[ordemSelecionada]) || [];
 
   function aplicarModelo(indice: number) {
     const modelo = modelos[indice];
@@ -406,6 +413,9 @@ function TarefaLinha({
   const [comentario, setComentario] = useState("");
   const [urlEntrega, setUrlEntrega] = useState("");
   const [tipoEntrega, setTipoEntrega] = useState("Link");
+  const [modoEntrega, setModoEntrega] = useState<"link" | "arquivo">("link");
+  const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
+  const [erroEntrega, setErroEntrega] = useState<string | null>(null);
   const [processando, setProcessando] = useState(false);
 
   async function aprovar() {
@@ -448,6 +458,21 @@ function TarefaLinha({
     setProcessando(false);
     setUrlEntrega("");
     onMudou();
+  }
+
+  async function enviarArquivo() {
+    if (!arquivoSelecionado) return;
+    setProcessando(true);
+    setErroEntrega(null);
+    try {
+      await dataService.anexarEntregaArquivo(tarefa.id_tarefa, arquivoSelecionado);
+      setArquivoSelecionado(null);
+      onMudou();
+    } catch {
+      setErroEntrega("Não foi possível enviar o arquivo. Confira o tamanho (até 50 MB) e o tipo (PDF, imagem ou vídeo).");
+    } finally {
+      setProcessando(false);
+    }
   }
 
   return (
@@ -495,7 +520,7 @@ function TarefaLinha({
               {entregaveis.map((entrega) => (
                 <li key={entrega.id_entregavel}>
                   <span>v{entrega.versao}</span>
-                  <a href={entrega.arquivo_url} target="_blank" rel="noreferrer">
+                  <a href={urlArquivoEntrega(entrega.arquivo_url)} target="_blank" rel="noreferrer">
                     {entrega.tipo ?? "Arquivo"} ↗
                   </a>
                   <span className="ih-tarefa-linha__data-entrega">
@@ -506,21 +531,56 @@ function TarefaLinha({
             </ul>
 
             {podeAnexarEntrega && tarefa.status !== "Aprovada" && (
-              <div className="ih-tarefa-linha__anexar">
-                <select className="ih-field__input" value={tipoEntrega} onChange={(e) => setTipoEntrega(e.target.value)}>
-                  <option value="Link">Link (YouTube/Drive)</option>
-                  <option value="PDF">PDF</option>
-                  <option value="Imagem">Imagem</option>
-                </select>
-                <input
-                  className="ih-field__input"
-                  placeholder="URL do arquivo/link"
-                  value={urlEntrega}
-                  onChange={(e) => setUrlEntrega(e.target.value)}
-                />
-                <Button variant="secondary" onClick={enviarEntrega} loading={processando}>
-                  Enviar entrega
-                </Button>
+              <div className="ih-tarefa-linha__anexar-bloco">
+                <div className="ih-tarefa-linha__modo-entrega">
+                  <button
+                    type="button"
+                    className={modoEntrega === "link" ? "ih-tarefa-linha__modo--ativo" : ""}
+                    onClick={() => setModoEntrega("link")}
+                  >
+                    Colar link
+                  </button>
+                  <button
+                    type="button"
+                    className={modoEntrega === "arquivo" ? "ih-tarefa-linha__modo--ativo" : ""}
+                    onClick={() => setModoEntrega("arquivo")}
+                  >
+                    Enviar arquivo
+                  </button>
+                </div>
+
+                {modoEntrega === "link" ? (
+                  <div className="ih-tarefa-linha__anexar">
+                    <select className="ih-field__input" value={tipoEntrega} onChange={(e) => setTipoEntrega(e.target.value)}>
+                      <option value="Link">Link (YouTube/Drive)</option>
+                      <option value="PDF">PDF</option>
+                      <option value="Imagem">Imagem</option>
+                    </select>
+                    <input
+                      className="ih-field__input"
+                      placeholder="URL do arquivo/link"
+                      value={urlEntrega}
+                      onChange={(e) => setUrlEntrega(e.target.value)}
+                    />
+                    <Button variant="secondary" onClick={enviarEntrega} loading={processando}>
+                      Enviar entrega
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="ih-tarefa-linha__anexar">
+                    <input
+                      className="ih-field__input"
+                      type="file"
+                      accept=".pdf,image/*,video/*"
+                      onChange={(e) => setArquivoSelecionado(e.target.files?.[0] ?? null)}
+                    />
+                    <Button variant="secondary" onClick={enviarArquivo} loading={processando} disabled={!arquivoSelecionado}>
+                      Enviar arquivo
+                    </Button>
+                  </div>
+                )}
+                {erroEntrega && <p className="ih-authform__erro">{erroEntrega}</p>}
+                <p className="ih-tarefa-linha__dica-arquivo">PDF, imagem ou vídeo — até 50 MB.</p>
               </div>
             )}
           </div>
@@ -551,6 +611,149 @@ function TarefaLinha({
         </div>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/** RF-20 — dispara um lembrete manual avulso por e-mail para os integrantes desta equipe. */
+function LembreteManualCard({ idEquipe }: { idEquipe: number }) {
+  const [aberto, setAberto] = useState(false);
+  const [mensagem, setMensagem] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+
+  async function enviar() {
+    setEnviando(true);
+    try {
+      await dataService.dispararLembreteManual(idEquipe, mensagem);
+      setEnviado(true);
+      setMensagem("");
+      setAberto(false);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <Card className="ih-detalhe__bloco ih-lembrete-manual">
+      <div className="ih-detalhe__cabecalho-secao">
+        <div>
+          <h3>Lembrete manual</h3>
+          <p className="ih-etapas__aviso">Envia um e-mail avulso para todos os integrantes desta equipe agora mesmo.</p>
+        </div>
+        <Button variant="secondary" onClick={() => setAberto((v) => !v)}>
+          {aberto ? "Cancelar" : "+ Enviar lembrete"}
+        </Button>
+      </div>
+
+      {aberto && (
+        <div className="ih-etapas__form">
+          <textarea
+            className="ih-field__input"
+            placeholder="Mensagem (opcional) — se deixar em branco, envia um lembrete genérico."
+            value={mensagem}
+            onChange={(e) => setMensagem(e.target.value)}
+          />
+          <Button onClick={enviar} loading={enviando}>
+            Enviar agora
+          </Button>
+        </div>
+      )}
+
+      {enviado && <p className="ih-lembrete-manual__sucesso">Lembrete enviado.</p>}
+    </Card>
+  );
+}
+
+function EtapasSecao({
+  etapas,
+  idEquipe,
+  idEtapaAtual,
+  onMudou,
+}: {
+  etapas: Etapa[];
+  idEquipe: number;
+  idEtapaAtual: number;
+  onMudou: () => void;
+}) {
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function adicionar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nome.trim()) return;
+    setEnviando(true);
+    setErro(null);
+    try {
+      await dataService.adicionarEtapa(idEquipe, nome, descricao);
+      setNome("");
+      setDescricao("");
+      setMostrarForm(false);
+      onMudou();
+    } catch {
+      setErro("Não foi possível adicionar a etapa.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function remover(idEtapa: number) {
+    if (!confirm("Remover esta etapa da equipe? Só é possível se ela não tiver tarefas.")) return;
+    try {
+      await dataService.removerEtapa(idEquipe, idEtapa);
+      onMudou();
+    } catch {
+      alert("Não foi possível remover esta etapa — ela pode ter tarefas associadas ou ser a etapa atual da equipe.");
+    }
+  }
+
+  return (
+    <Card className="ih-detalhe__bloco ih-etapas">
+      <div className="ih-detalhe__cabecalho-secao">
+        <div>
+          <h3>Etapas desta equipe</h3>
+          <p className="ih-etapas__aviso">
+            Padrão: 6 etapas. Você pode acrescentar ou remover etapas só para esta equipe, sem afetar as demais.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => setMostrarForm((v) => !v)}>
+          {mostrarForm ? "Cancelar" : "+ Adicionar etapa"}
+        </Button>
+      </div>
+
+      {mostrarForm && (
+        <form className="ih-etapas__form" onSubmit={adicionar}>
+          <Input label="Nome da etapa" value={nome} onChange={(e) => setNome(e.target.value)} required />
+          <Input label="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+          {erro && <p className="ih-authform__erro">{erro}</p>}
+          <Button type="submit" loading={enviando}>
+            Adicionar ao final do funil desta equipe
+          </Button>
+        </form>
+      )}
+
+      <ul className="ih-etapas__lista">
+        {etapas.map((etapa) => (
+          <li key={etapa.id_etapa} className={etapa.id_etapa === idEtapaAtual ? "ih-etapas__item--atual" : ""}>
+            <span className="ih-etapas__ordem">{etapa.ordem}</span>
+            <span className="ih-etapas__nome">{etapa.nome}</span>
+            {etapa.id_etapa === idEtapaAtual && <span className="ih-etapas__badge-atual">etapa atual</span>}
+            <button
+              type="button"
+              className="ih-etapas__remover"
+              onClick={() => remover(etapa.id_etapa)}
+              aria-label={`Remover etapa ${etapa.nome}`}
+            >
+              Remover
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 

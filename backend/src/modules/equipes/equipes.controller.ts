@@ -1,7 +1,19 @@
 import type { Request, Response } from "express";
+import { z } from "zod";
 import { ApiError } from "../../utils/ApiError";
 import { equipesService } from "./equipes.service";
+import { notificacoesService } from "../../services/email/notificacoes.service";
+import { pool } from "../../db/pool";
 import type { AreaIdeia, StatusTarefa } from "../../types";
+
+const criarEtapaSchema = z.object({
+  nome: z.string().min(1, "Informe o nome da etapa."),
+  descricao: z.string().default(""),
+});
+
+const lembreteManualSchema = z.object({
+  mensagem: z.string().default(""),
+});
 
 function paraNumeroOuUndefined(valor: unknown): number | undefined {
   if (typeof valor !== "string" || valor.trim() === "") return undefined;
@@ -66,6 +78,50 @@ export const equipesController = {
   async historico(req: Request, res: Response) {
     const idEquipe = Number(req.params.id);
     res.json(await equipesService.listarHistorico(idEquipe));
+  },
+
+  // Etapas da equipe — padrão 6, mas o mentor pode acrescentar ou remover por equipe.
+  async listarEtapas(req: Request, res: Response) {
+    const idEquipe = Number(req.params.id);
+    const usuario = req.usuario!;
+
+    if (usuario.perfil === "aluno" && !(await equipesService.ehIntegranteDaEquipe(idEquipe, usuario.id_usuario))) {
+      throw ApiError.forbidden("Você não faz parte desta equipe.");
+    }
+    if (usuario.perfil === "mentor" && !(await equipesService.ehMentorDaEquipe(idEquipe, usuario.id_usuario))) {
+      throw ApiError.forbidden("Você não mentora esta equipe.");
+    }
+
+    res.json(await equipesService.listarEtapas(idEquipe));
+  },
+
+  async adicionarEtapa(req: Request, res: Response) {
+    const idEquipe = Number(req.params.id);
+    await exigirGerenciador(req, idEquipe);
+
+    const { nome, descricao } = criarEtapaSchema.parse(req.body);
+    res.status(201).json(await equipesService.adicionarEtapa(idEquipe, nome, descricao));
+  },
+
+  async removerEtapa(req: Request, res: Response) {
+    const idEquipe = Number(req.params.id);
+    const idEtapa = Number(req.params.idEtapa);
+    await exigirGerenciador(req, idEquipe);
+
+    res.json(await equipesService.removerEtapa(idEquipe, idEtapa));
+  },
+
+  // RF-20 — admin dispara um lembrete manual avulso para uma equipe específica.
+  async lembreteManual(req: Request, res: Response) {
+    const idEquipe = Number(req.params.id);
+    await exigirGerenciador(req, idEquipe);
+
+    const { mensagem } = lembreteManualSchema.parse(req.body);
+    const { rows } = await pool.query("SELECT nome_equipe FROM equipe WHERE id_equipe = $1", [idEquipe]);
+    if (!rows[0]) throw ApiError.notFound("Equipe não encontrada.");
+
+    await notificacoesService.lembreteManual(idEquipe, rows[0].nome_equipe, mensagem);
+    res.status(204).send();
   },
 };
 

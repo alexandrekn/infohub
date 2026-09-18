@@ -51,12 +51,25 @@ async function comMentores(idEquipe: number) {
   return rows.map((r) => paraPublico(linhaParaUsuario(r)));
 }
 
+/** Etapas próprias desta equipe, em ordem — cada equipe tem seu próprio conjunto. */
+async function comEtapas(idEquipe: number) {
+  const { rows } = await pool.query(
+    "SELECT id_etapa, id_equipe, nome, descricao, ordem FROM etapa WHERE id_equipe = $1 ORDER BY ordem",
+    [idEquipe]
+  );
+  return rows;
+}
+
 async function compor(idEquipe: number) {
   const { rows } = await pool.query("SELECT * FROM equipe WHERE id_equipe = $1", [idEquipe]);
   const equipe = rows[0];
   if (!equipe) return null;
 
-  const [integrantes, mentores] = await Promise.all([comIntegrantes(idEquipe), comMentores(idEquipe)]);
+  const [integrantes, mentores, etapas] = await Promise.all([
+    comIntegrantes(idEquipe),
+    comMentores(idEquipe),
+    comEtapas(idEquipe),
+  ]);
 
   return {
     id_equipe: equipe.id_equipe,
@@ -72,6 +85,7 @@ async function compor(idEquipe: number) {
     id_mentores: mentores.map((m) => m.id_usuario),
     mentores,
     integrantes,
+    etapas,
   };
 }
 
@@ -141,14 +155,58 @@ export const equipesService = {
     return rows.length > 0;
   },
 
-  /** RF-09 — avançar etapa manualmente (admin ou mentor da equipe, ver RN-01). */
+  // ---- Etapas da equipe (personalizáveis por equipe — padrão 6, mentor pode ajustar) ----
+  async listarEtapas(idEquipe: number) {
+    return comEtapas(idEquipe);
+  },
+
+  /** Acrescenta uma etapa ao final do funil desta equipe. */
+  async adicionarEtapa(idEquipe: number, nome: string, descricao: string) {
+    const { rows: maxRows } = await pool.query("SELECT COALESCE(MAX(ordem), 0) AS max FROM etapa WHERE id_equipe = $1", [idEquipe]);
+    const novaOrdem = maxRows[0].max + 1;
+    const { rows } = await pool.query(
+      "INSERT INTO etapa (id_equipe, nome, descricao, ordem) VALUES ($1, $2, $3, $4) RETURNING id_etapa, id_equipe, nome, descricao, ordem",
+      [idEquipe, nome, descricao, novaOrdem]
+    );
+    return rows[0];
+  },
+
+  /** Remove uma etapa desta equipe — não pode ser a etapa atual, nem ter tarefas associadas. */
+  async removerEtapa(idEquipe: number, idEtapa: number) {
+    const { rows: etapaRows } = await pool.query("SELECT * FROM etapa WHERE id_etapa = $1 AND id_equipe = $2", [idEtapa, idEquipe]);
+    if (!etapaRows[0]) throw ApiError.notFound("Etapa não encontrada nesta equipe.");
+
+    const { rows: equipeRows } = await pool.query("SELECT id_etapa_atual FROM equipe WHERE id_equipe = $1", [idEquipe]);
+    if (equipeRows[0]?.id_etapa_atual === idEtapa) {
+      throw ApiError.conflict("Não é possível remover a etapa em que a equipe está no momento.");
+    }
+
+    const { rows: tarefasRows } = await pool.query("SELECT 1 FROM tarefa WHERE id_etapa = $1 LIMIT 1", [idEtapa]);
+    if (tarefasRows.length > 0) {
+      throw ApiError.conflict("Não é possível remover uma etapa que já tem tarefas associadas.");
+    }
+
+    await pool.query("DELETE FROM etapa WHERE id_etapa = $1", [idEtapa]);
+    return this.listarEtapas(idEquipe);
+  },
+
+  /** RF-09 — avançar etapa manualmente (admin ou mentor da equipe, ver RN-01). Segue a ordem própria da equipe. */
   async avancarEtapa(idEquipe: number) {
-    const { rows } = await pool.query("SELECT id_etapa_atual FROM equipe WHERE id_equipe = $1", [idEquipe]);
+    const { rows } = await pool.query(
+      `SELECT e.id_etapa_atual, et.ordem AS ordem_atual
+       FROM equipe e LEFT JOIN etapa et ON et.id_etapa = e.id_etapa_atual
+       WHERE e.id_equipe = $1`,
+      [idEquipe]
+    );
     if (!rows[0]) throw ApiError.notFound("Equipe não encontrada.");
 
-    const { rows: totalEtapas } = await pool.query("SELECT COUNT(*)::int AS total FROM etapa");
-    if (rows[0].id_etapa_atual < totalEtapas[0].total) {
-      const novaEtapa = rows[0].id_etapa_atual + 1;
+    const { rows: proximaRows } = await pool.query(
+      "SELECT id_etapa FROM etapa WHERE id_equipe = $1 AND ordem = $2",
+      [idEquipe, (rows[0].ordem_atual ?? 0) + 1]
+    );
+
+    if (proximaRows[0]) {
+      const novaEtapa = proximaRows[0].id_etapa;
       await pool.query("UPDATE equipe SET id_etapa_atual = $1 WHERE id_equipe = $2", [novaEtapa, idEquipe]);
       await pool.query(
         "INSERT INTO historico_etapa (id_equipe, id_etapa) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -159,18 +217,28 @@ export const equipesService = {
   },
 
   async retrocederEtapa(idEquipe: number) {
-    const { rows } = await pool.query("SELECT id_etapa_atual FROM equipe WHERE id_equipe = $1", [idEquipe]);
+    const { rows } = await pool.query(
+      `SELECT e.id_etapa_atual, et.ordem AS ordem_atual
+       FROM equipe e LEFT JOIN etapa et ON et.id_etapa = e.id_etapa_atual
+       WHERE e.id_equipe = $1`,
+      [idEquipe]
+    );
     if (!rows[0]) throw ApiError.notFound("Equipe não encontrada.");
 
-    if (rows[0].id_etapa_atual > 1) {
-      await pool.query("UPDATE equipe SET id_etapa_atual = id_etapa_atual - 1 WHERE id_equipe = $1", [idEquipe]);
+    const { rows: anteriorRows } = await pool.query(
+      "SELECT id_etapa FROM etapa WHERE id_equipe = $1 AND ordem = $2",
+      [idEquipe, (rows[0].ordem_atual ?? 0) - 1]
+    );
+
+    if (anteriorRows[0]) {
+      await pool.query("UPDATE equipe SET id_etapa_atual = $1 WHERE id_equipe = $2", [anteriorRows[0].id_etapa, idEquipe]);
     }
     return compor(idEquipe);
   },
 
   async listarHistorico(idEquipe: number) {
     const { rows } = await pool.query(
-      "SELECT id_equipe, id_etapa, data_entrada FROM historico_etapa WHERE id_equipe = $1 ORDER BY id_etapa",
+      "SELECT id_equipe, id_etapa, data_entrada FROM historico_etapa WHERE id_equipe = $1 ORDER BY data_entrada",
       [idEquipe]
     );
     return rows;

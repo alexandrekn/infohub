@@ -16,6 +16,14 @@ equipesRoutes.get("/:id/historico-etapas", asyncHandler(equipesController.histor
 equipesRoutes.patch("/:id/avancar-etapa", asyncHandler(equipesController.avancarEtapa));
 equipesRoutes.patch("/:id/retroceder-etapa", asyncHandler(equipesController.retrocederEtapa));
 
+// Etapas da equipe — padrão 6, mentor pode acrescentar/remover por equipe.
+equipesRoutes.get("/:id/etapas", asyncHandler(equipesController.listarEtapas));
+equipesRoutes.post("/:id/etapas", asyncHandler(equipesController.adicionarEtapa));
+equipesRoutes.delete("/:id/etapas/:idEtapa", asyncHandler(equipesController.removerEtapa));
+
+// RF-20 — lembrete manual avulso.
+equipesRoutes.post("/:id/lembrete-manual", asyncHandler(equipesController.lembreteManual));
+
 // RF-11 — tarefas de uma equipe.
 equipesRoutes.get("/:id/tarefas", asyncHandler(tarefasController.listarPorEquipe));
 equipesRoutes.post("/:id/tarefas", asyncHandler(tarefasController.criar));
